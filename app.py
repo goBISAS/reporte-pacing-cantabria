@@ -2,8 +2,12 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# CONFIGURACIÓN DE PÁGINA
-st.set_page_config(page_title="goBIG - Cantabria Labs", layout="wide")
+# CONFIGURACIÓN DE PÁGINA (Branding personalizado)
+st.set_page_config(
+    page_title="goBIG - Cantabria Labs",
+    page_icon="logo.png", 
+    layout="wide"
+)
 
 # ESTILOS MÓVIL/PWA
 st.markdown("""
@@ -17,13 +21,13 @@ st.markdown("""
 def get_csv_url(url):
     return url.replace('/edit?gid=', '/export?format=csv&gid=').split('#')[0]
 
-# Función para encontrar columnas aunque el nombre varíe un poco
 def encontrar_columna(lista_cols, palabras_clave):
     for col in lista_cols:
         if all(p.lower() in str(col).lower() for p in palabras_clave):
             return col
     return None
 
+# LINKS DE LOS DOCUMENTOS
 url_pacing = "https://docs.google.com/spreadsheets/d/18DGFtWV_BAOLjxBlmImhZ_8Xuilc4CKK_bNZIHQnCcU/edit?gid=1210187329"
 url_gestion = "https://docs.google.com/spreadsheets/d/15eeJ2GBPR5XnB71crLoBd4JVYrj5NBVkrexgSBBtf2M/edit?gid=0"
 
@@ -38,7 +42,6 @@ try:
     df_pacing = pd.read_csv(get_csv_url(url_pacing), skiprows=5)
     df_gest = pd.read_csv(get_csv_url(url_gestion))
 
-    # Limpieza inicial de nombres
     df_pacing.columns = [str(c).strip() for c in df_pacing.columns]
 
     # --- MÉTRICAS DE CABECERA ---
@@ -67,11 +70,9 @@ try:
     df_v = df_pacing[mask].copy()
 
     if not df_v.empty:
-        # BUSQUEDA INTELIGENTE DE LAS COLUMNAS O Y R
         col_res = encontrar_columna(df_v.columns, ['Platform', 'Conversions'])
         col_cpa = encontrar_columna(df_v.columns, ['CPA'])
         
-        # Construimos la tabla con lo que encontremos
         cols_finales = ['Campaign']
         nombres_renombrar = {'Campaign': 'Campaña'}
         
@@ -104,4 +105,4 @@ try:
 except Exception as e:
     st.error(f"Error técnico: {e}")
 
-st.caption("goBIG Dashboard | Automatizado 05:00 AM")
+st.caption("goBIG Dashboard | Actualización en Tiempo Real")
