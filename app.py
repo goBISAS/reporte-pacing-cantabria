@@ -11,6 +11,7 @@ st.markdown("""
     .main { background-color: #f8f9fa; }
     [data-testid="stMetricValue"] { font-size: 28px; color: #1d3557; }
     h1, h2 { color: #457b9d; }
+    .stAlert { border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -25,25 +26,23 @@ st.subheader("Cliente: Cantabria Labs")
 
 try:
     # 1. CARGA DE DATOS
-    # Presupuesto desde el Header (Fila 2, Celda C)
     df_header = pd.read_csv(get_csv_url(url_pacing), nrows=5, header=None)
     presupuesto_mensual = df_header.iloc[1, 2] 
 
-    # Datos principales desde la fila 6
     df_pacing = pd.read_csv(get_csv_url(url_pacing), skiprows=5)
     df_gest = pd.read_csv(get_csv_url(url_gestion))
 
-    # --- LIMPIEZA DE COLUMNAS ---
-    # Esto elimina espacios invisibles que suelen causar errores
-    df_pacing.columns = df_pacing.columns.str.strip()
+    # --- LIMPIEZA AGRESIVA DE COLUMNAS ---
+    # Eliminamos espacios, saltos de línea y convertimos a texto limpio
+    df_pacing.columns = [str(c).strip().replace('\n', ' ') for c in df_pacing.columns]
+    df_gest.columns = [str(c).strip().replace('\n', ' ') for c in df_gest.columns]
 
     # --- MÉTRICAS DE CABECERA ---
-    # Gasto acumulado (Fila TOTAL)
-    fila_total = df_pacing[df_pacing['Campaign'] == 'TOTAL'].iloc[0]
+    # Buscamos la fila TOTAL (Columna B / Campaign)
+    fila_total = df_pacing[df_pacing['Campaign'].str.contains('TOTAL', na=False)].iloc[0]
     gasto_total = fila_total['Spend (COP)']
     
-    # BUSCAR FECHA DE ACTUALIZACIÓN (Columna S)
-    # Probamos con y sin tilde para estar seguros
+    # Buscamos columna de fecha (con o sin tilde)
     col_fecha = 'Actualizacion Pacing' if 'Actualizacion Pacing' in df_pacing.columns else 'Actualización Pacing'
     fecha_update = df_pacing[col_fecha].dropna().iloc[-1]
 
@@ -63,31 +62,50 @@ try:
     # --- SECCIÓN VENTAS & DERMARKET ---
     st.header("🎯 Resultados: Ventas & Dermarket")
     
+    # Filtramos campañas
     mask = df_pacing['Campaign'].str.contains('Ventas|dermarket', case=False, na=False)
     df_v = df_pacing[mask].copy()
 
     if not df_v.empty:
-        # Columna O = Platform Conversions, Columna R = CPA
-        df_v_display = df_v[['Campaign', 'Platform Conversions', 'CPA']]
-        df_v_display.columns = ['Campaña', 'Ventas / Resultado', 'Costo x Resultado']
+        # Usamos una forma segura de seleccionar columnas por si el nombre varía mínimamente
+        col_resultado = 'Platform Conversions'
+        col_cpa = 'CPA'
+        
+        # Verificamos si existen antes de mostrar
+        columnas_a_mostrar = ['Campaign']
+        if col_resultado in df_v.columns: columnas_a_mostrar.append(col_resultado)
+        if col_cpa in df_v.columns: columnas_a_mostrar.append(col_cpa)
+        
+        df_v_display = df_v[columnas_a_mostrar]
+        
+        # Nombres amigables para el cliente
+        nombres_columnas = {'Campaign': 'Campaña', 'Platform Conversions': 'Ventas / Resultado', 'CPA': 'Costo x Resultado'}
+        df_v_display = df_v_display.rename(columns=nombres_columnas)
+        
         st.dataframe(df_v_display, use_container_width=True, hide_index=True)
     else:
         st.warning("No se detectan campañas con 'Ventas' o 'Dermarket' actualmente.")
 
     # --- MÉTODOS DE COMPRA ---
     with st.expander("🔗 Ver Métodos de Compra"):
-        metodos = df_pacing['Official Conversions'].unique()
-        st.write(", ".join([str(m) for m in metodos if pd.notna(m) and m != 'Official Conversions']))
+        col_metodo = 'Official Conversions'
+        if col_metodo in df_pacing.columns:
+            metodos = df_pacing[col_metodo].unique()
+            st.write(", ".join([str(m) for m in metodos if pd.notna(m) and str(m).strip() != 'Official Conversions']))
 
     st.divider()
 
     # --- RESUMEN DE GESTIÓN ---
     st.header("📅 Gestión del Cliente")
+    # Aseguramos que los nombres coincidan con el Excel de gestión
     df_res_gest = df_gest[['Nombre de actividad', 'Fecha de ejecución']].dropna()
     st.table(df_res_gest)
 
 except Exception as e:
-    st.error(f"Error técnico: {e}")
-    st.info("Nota: Revisa si el nombre de la columna en el Excel es 'Actualizacion Pacing' o 'Actualización Pacing'.")
+    st.error(f"Nota técnica: {e}")
+    # Si falla, mostramos las columnas reales para diagnosticar
+    if 'df_pacing' in locals():
+        with st.expander("Ayuda técnica: Columnas detectadas"):
+            st.write(list(df_pacing.columns))
 
 st.caption("goBIG Dashboard | Automatizado 05:00 AM")
