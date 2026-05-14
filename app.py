@@ -13,7 +13,7 @@ st.set_page_config(
 st.markdown("""
     <style>
     .main { background-color: #f4f7f6; }
-    [data-testid="stMetricValue"] { font-size: 28px; color: #004b49; }
+    [data-testid="stMetricValue"] { font-size: 28px; color: #004b49; } /* Verde oscuro profesional */
     h1, h2 { color: #004b49; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     .stSidebar { background-color: #ffffff; border-right: 1px solid #e0e0e0; }
     </style>
@@ -55,7 +55,7 @@ st.title(f"📈 Dashboard de Rendimiento: {marca_seleccionada}")
 url_pacing_activa = diccionario_marcas[marca_seleccionada]
 
 try:
-    # 1. CARGA DE DATOS
+    # 1. CARGA DE DATOS DE LA MARCA SELECCIONADA
     df_header = pd.read_csv(get_csv_url(url_pacing_activa), nrows=5, header=None)
     presupuesto_mensual = df_header.iloc[1, 2] 
 
@@ -63,7 +63,6 @@ try:
     df_pacing.columns = [str(c).strip() for c in df_pacing.columns]
 
     # 2. MÉTRICAS DE CABECERA
-    # Usamos el total general para los indicadores superiores
     fila_total = df_pacing[df_pacing['Campaign'].str.contains('TOTAL', na=False)].iloc[0]
     gasto_total = fila_total['Spend (COP)']
     
@@ -82,38 +81,31 @@ try:
     st.success(f"📅 Última actualización de datos de {marca_seleccionada}: {fecha_update}")
     st.divider()
 
-    # 3. SECCIÓN DE RESULTADOS GENERALES (Todas las campañas)
-    st.header(f"🎯 Rendimiento de Campañas ({marca_seleccionada})")
-    
-    # Filtro: Mostramos todas las filas que tengan nombre de campaña y NO sean el 'TOTAL'
-    df_campañas = df_pacing[
-        (df_pacing['Campaign'].notna()) & 
-        (~df_pacing['Campaign'].str.contains('TOTAL', na=False))
-    ].copy()
+    # 3. SECCIÓN VENTAS & DERMARKET
+    st.header(f"🎯 Resultados: Ventas & Dermarket ({marca_seleccionada})")
+    mask = df_pacing['Campaign'].str.contains('Ventas|dermarket', case=False, na=False)
+    df_v = df_pacing[mask].copy()
 
-    if not df_campañas.empty:
-        col_res = encontrar_columna(df_campañas.columns, ['Platform', 'Conversions'])
-        col_cpa = encontrar_columna(df_campañas.columns, ['CPA'])
+    if not df_v.empty:
+        col_res = encontrar_columna(df_v.columns, ['Platform', 'Conversions'])
+        col_cpa = encontrar_columna(df_v.columns, ['CPA'])
         
         cols_finales = ['Campaign']
         nombres_renombrar = {'Campaign': 'Campaña'}
         
         if col_res:
             cols_finales.append(col_res)
-            nombres_renombrar[col_res] = 'Resultados (Cant.)'
+            nombres_renombrar[col_res] = 'Ventas / Resultado'
         if col_cpa:
             cols_finales.append(col_cpa)
-            nombres_renombrar[col_cpa] = 'Costo por Resultado'
+            nombres_renombrar[col_cpa] = 'Costo x Resultado'
             
-        df_display = df_campañas[cols_finales].rename(columns=nombres_renombrar)
-        
-        # Mostramos la tabla completa de campañas
+        df_display = df_v[cols_finales].rename(columns=nombres_renombrar)
         st.dataframe(df_display, use_container_width=True, hide_index=True)
-        st.caption("Nota: 'Resultados' se refiere a Alcance, Clics o Compras según el objetivo de cada campaña.")
     else:
-        st.warning(f"No se detectan campañas activas para {marca_seleccionada}.")
+        st.warning(f"No se detectan campañas con palabras clave para {marca_seleccionada}.")
 
-    # 4. TABLA DE GESTIÓN
+    # 4. TABLA DE GESTIÓN (General para el grupo)
     st.divider()
     st.header("📅 Gestión General Medivelius")
     df_gest = pd.read_csv(get_csv_url(url_gestion))
