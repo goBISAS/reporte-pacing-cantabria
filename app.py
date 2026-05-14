@@ -55,7 +55,7 @@ st.title(f"📈 Dashboard de Rendimiento: {marca_seleccionada}")
 url_pacing_activa = diccionario_marcas[marca_seleccionada]
 
 try:
-    # 1. CARGA DE DATOS
+    # 1. CARGA DE DATOS (Filas 1-5 Header, Fila 6+ Datos) [cite: 6, 8]
     df_header = pd.read_csv(get_csv_url(url_pacing_activa), nrows=5, header=None)
     presupuesto_mensual = df_header.iloc[1, 2] 
 
@@ -63,7 +63,6 @@ try:
     df_pacing.columns = [str(c).strip() for c in df_pacing.columns]
 
     # 2. MÉTRICAS DE CABECERA
-    # Usamos el total general para los indicadores superiores
     fila_total = df_pacing[df_pacing['Campaign'].str.contains('TOTAL', na=False)].iloc[0]
     gasto_total = fila_total['Spend (COP)']
     
@@ -85,19 +84,24 @@ try:
     # 3. SECCIÓN DE RESULTADOS GENERALES (Todas las campañas)
     st.header(f"🎯 Rendimiento de Campañas ({marca_seleccionada})")
     
-    # Filtro: Mostramos todas las filas que tengan nombre de campaña y NO sean el 'TOTAL'
+    # Filtro: Campañas individuales (omitiendo totales) [cite: 10]
     df_campañas = df_pacing[
         (df_pacing['Campaign'].notna()) & 
         (~df_pacing['Campaign'].str.contains('TOTAL', na=False))
     ].copy()
 
     if not df_campañas.empty:
+        # Buscamos columnas O (Resultados), R (CPA) y P (Tipo de compra) [cite: 11, 18]
         col_res = encontrar_columna(df_campañas.columns, ['Platform', 'Conversions'])
         col_cpa = encontrar_columna(df_campañas.columns, ['CPA'])
+        col_tipo = encontrar_columna(df_campañas.columns, ['Official', 'Conversions'])
         
         cols_finales = ['Campaign']
         nombres_renombrar = {'Campaign': 'Campaña'}
         
+        if col_tipo:
+            cols_finales.append(col_tipo)
+            nombres_renombrar[col_tipo] = 'Tipo de Resultado'
         if col_res:
             cols_finales.append(col_res)
             nombres_renombrar[col_res] = 'Resultados (Cant.)'
@@ -107,13 +111,12 @@ try:
             
         df_display = df_campañas[cols_finales].rename(columns=nombres_renombrar)
         
-        # Mostramos la tabla completa de campañas
+        # Mostramos la tabla completa con la nueva columna
         st.dataframe(df_display, use_container_width=True, hide_index=True)
-        st.caption("Nota: 'Resultados' se refiere a Alcance, Clics o Compras según el objetivo de cada campaña.")
     else:
         st.warning(f"No se detectan campañas activas para {marca_seleccionada}.")
 
-    # 4. TABLA DE GESTIÓN
+    # 4. TABLA DE GESTIÓN (Nombre de actividad y Fecha) [cite: 21, 26]
     st.divider()
     st.header("📅 Gestión General Medivelius")
     df_gest = pd.read_csv(get_csv_url(url_gestion))
