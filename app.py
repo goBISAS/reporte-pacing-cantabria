@@ -36,7 +36,6 @@ diccionario_marcas = {
     "Sensilis": "https://docs.google.com/spreadsheets/d/1e8ZkA61crydoXKdA3lQtMkMMYDHutSR7t6PK-8GvPo0/edit?gid=1519706032",
     "Apivita": "https://docs.google.com/spreadsheets/d/1r4KycpStMWvpF1fOzMgmLBjgVQ8dX8WTpgtKWgNm2lM/edit?gid=0"
 }
-url_gestion = "https://docs.google.com/spreadsheets/d/15eeJ2GBPR5XnB71crLoBd4JVYrj5NBVkrexgSBBtf2M/edit?gid=0"
 
 # --- MENÚ LATERAL (SIDEBAR) ---
 with st.sidebar:
@@ -55,7 +54,7 @@ st.title(f"📈 Dashboard de Rendimiento: {marca_seleccionada}")
 url_pacing_activa = diccionario_marcas[marca_seleccionada]
 
 try:
-    # 1. CARGA DE DATOS (Filas 1-5 Header, Fila 6+ Datos) [cite: 6, 8]
+    # 1. CARGA DE DATOS (Filas 1-5 Header, Fila 6+ Datos)
     df_header = pd.read_csv(get_csv_url(url_pacing_activa), nrows=5, header=None)
     presupuesto_mensual = df_header.iloc[1, 2] 
 
@@ -84,14 +83,14 @@ try:
     # 3. SECCIÓN DE RESULTADOS GENERALES (Todas las campañas)
     st.header(f"🎯 Rendimiento de Campañas ({marca_seleccionada})")
     
-    # Filtro: Campañas individuales (omitiendo totales) [cite: 10]
+    # Filtro: Campañas individuales (omitiendo totales)
     df_campañas = df_pacing[
         (df_pacing['Campaign'].notna()) & 
         (~df_pacing['Campaign'].str.contains('TOTAL', na=False))
     ].copy()
 
     if not df_campañas.empty:
-        # Buscamos columnas O (Resultados), R (CPA) y P (Tipo de compra) [cite: 11, 18]
+        # Buscamos columnas O (Resultados), R (CPA) y P (Tipo de compra)
         col_res = encontrar_columna(df_campañas.columns, ['Platform', 'Conversions'])
         col_cpa = encontrar_columna(df_campañas.columns, ['CPA'])
         col_tipo = encontrar_columna(df_campañas.columns, ['Official', 'Conversions'])
@@ -115,13 +114,6 @@ try:
         st.dataframe(df_display, use_container_width=True, hide_index=True)
     else:
         st.warning(f"No se detectan campañas activas para {marca_seleccionada}.")
-
-    # 4. TABLA DE GESTIÓN (Nombre de actividad y Fecha) [cite: 21, 26]
-    st.divider()
-    st.header("📅 Gestión General Medivelius")
-    df_gest = pd.read_csv(get_csv_url(url_gestion))
-    df_res_gest = df_gest[['Nombre de actividad', 'Fecha de ejecución']].dropna()
-    st.table(df_res_gest)
 
 except Exception as e:
     st.error(f"Error al cargar datos de {marca_seleccionada}: {e}")
