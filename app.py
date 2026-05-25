@@ -147,7 +147,7 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
         if not col_spend:
             col_spend = df_pacing.columns[7] if len(df_pacing.columns) > 7 else df_pacing.columns[-1]
 
-        # 4. ENCONTRAR TODAS LAS COLUMNAS DE FECHA (Para evitar el conflicto de nombres repetidos)
+        # 4. ENCONTRAR TODAS LAS COLUMNAS DE FECHA (Evita conflicto de nombres duplicados)
         cols_fecha_detectadas = [c for c in df_pacing.columns if any(k in c.lower() for k in ['actualizaci', 'pacing', 'fecha'])]
 
         # Limpieza y filtrado estructural de las filas
@@ -166,18 +166,19 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
         df_limpio['Resultados_Final'] = df_limpio[col_res] if col_res else 'N/D'
         df_limpio['CPA_Final'] = df_limpio[col_cpa] if col_cpa else 'N/D'
 
-        # 5. EXTRACCIÓN MULTI-COLUMNA DE FECHA (De abajo hacia arriba cruzando todas las columnas de Pacing)
+        # 5. EXTRACCIÓN INVERSA MULTI-COLUMNA SEGURA (Nativa de Python)
         marca_fecha = "N/D"
         encontrado = False
         
-        # Iteramos las filas de la tabla limpia de atrás hacia adelante
-        for idx in reversed(df_limpio.index):
+        # Recorremos el dataframe limpio al revés usando .iloc
+        for row_idx in range(len(df_limpio) - 1, -1, -1):
             for c_fecha in cols_fecha_detectadas:
-                val_celda = str(df_limpio.loc[idx, c_fecha]).strip()
+                val_celda = str(df_limpio.iloc[row_idx][c_fecha]).strip()
                 val_lower = val_celda.lower()
                 
+                # Filtrar celdas que no aportan datos válidos de fecha
                 if val_celda != '' and val_lower not in ['nan', 'none', '<na>', '-', 'null']:
-                    if not any(k in val_lower for k in ['actualiz', 'pacing', 'fecha', 'update']):
+                    if not any(k in val_lower for k in ['actualiz', 'pacing', 'fecha', 'update', 'total']):
                         marca_fecha = val_celda
                         encontrado = True
                         break
