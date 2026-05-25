@@ -49,7 +49,6 @@ def obtener_meses_disponibles():
     return list(reversed(lista))
 
 def query_sheet_data(url, mes_str):
-    # Tolera variantes como "Mayo 2026" y "1 Mayo 2026" de Uriage
     variantes_pestaña = [mes_str, f"1 {mes_str}", mes_str.title(), mes_str.lower()]
     id_publicacion = url.split("/d/")[1].split("/")[0]
     
@@ -165,10 +164,16 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
         df_limpio['Resultados_Final'] = df_limpio[col_res] if col_res else 'N/D'
         df_limpio['CPA_Final'] = df_limpio[col_cpa] if col_cpa else 'N/D'
 
-        # Extracción segura de la última fecha registrada en la columna detectada
-        fechas_validas = df_limpio[col_fecha].astype(str).str.strip()
-        fechas_validas = fechas_validas[(fechas_validas != '') & (~fechas_validas.str.lower().str.contains('pacing|actualiz|fecha'))]
-        fechas_actualizacion[marca] = fechas_validas.iloc[-1] if not fechas_validas.empty else "N/D"
+        # 6. EXTRACCIÓN INVERSA DE LA FECHA (Ignora celdas vacías al fondo de la tabla)
+        marca_fecha = "N/D"
+        if col_fecha in df_limpio.columns:
+            lista_fechas = df_limpio[col_fecha].astype(str).str.strip().tolist()
+            # Escaneamos de abajo hacia arriba buscando un formato numérico/fecha válido
+            for f_val in reversed(lista_fechas):
+                if f_val != '' and f_val.lower() not in ['nan', 'none', '<na>', '-'] and not f_val.lower().contains('actualiz|pacing|fecha'):
+                    marca_fecha = f_val
+                    break
+        fechas_actualizacion[marca] = marca_fecha
 
         # Guardar marca y consolidar
         df_limpio['Marca'] = marca
