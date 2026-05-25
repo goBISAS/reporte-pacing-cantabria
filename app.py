@@ -1,121 +1,236 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from datetime import datetime
+import urllib.parse
+import re
 
 # CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
-    page_title="Medivelius - Reporte Corporativo",
-    page_icon="medivelius_logo.jpg",
+    page_title="Cantabria - Multibrand Paid Media Dashboard",
+    page_icon="⚡",
     layout="wide"
 )
 
-# ESTILOS PERSONALIZADOS (Identidad Medivelius)
+# ESTILOS PREMIUM OSCURO
 st.markdown("""
     <style>
-    .main { background-color: #f4f7f6; }
-    [data-testid="stMetricValue"] { font-size: 28px; color: #004b49; }
-    h1, h2 { color: #004b49; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .stSidebar { background-color: #ffffff; border-right: 1px solid #e0e0e0; }
+    .main { background-color: #0d0d0d; }
+    [data-testid="stMetricValue"] { font-size: 32px; color: #d6b58e !important; font-weight: 700; }
+    [data-testid="stMetricLabel"] { color: #f5f5f5 !important; }
+    h1, h2, h3 { color: #ffffff; font-family: 'Georgia', serif; }
+    .stSidebar { background-color: #1a1a1a; border-right: 1px solid #333; }
+    .stPlotlyChart { border: 1px solid #333; border-radius: 8px; background-color: #1a1a1a; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIONES DE AYUDA ---
-def get_csv_url(url):
-    return url.replace('/edit?gid=', '/export?format=csv&gid=').split('#')[0]
-
-def encontrar_columna(lista_cols, palabras_clave):
-    for col in lista_cols:
-        if all(p.lower() in str(col).lower() for p in palabras_clave):
-            return col
-    return None
-
-# --- CONFIGURACIÓN DE DATOS (4 Marcas) ---
-diccionario_marcas = {
-    "Cantabria Labs": "https://docs.google.com/spreadsheets/d/18DGFtWV_BAOLjxBlmImhZ_8Xuilc4CKK_bNZIHQnCcU/edit?gid=1210187329",
-    "Uriage": "https://docs.google.com/spreadsheets/d/1XnkC6ONKaJm03k2qAtQmcwuoRrBSh6uXYsdewrlwjK0/edit?gid=1220251411",
-    "Sensilis": "https://docs.google.com/spreadsheets/d/1e8ZkA61crydoXKdA3lQtMkMMYDHutSR7t6PK-8GvPo0/edit?gid=1519706032",
-    "Apivita": "https://docs.google.com/spreadsheets/d/1r4KycpStMWvpF1fOzMgmLBjgVQ8dX8WTpgtKWgNm2lM/edit?gid=0"
+# --- MAPEO DE MARCAS CON LAS NUEVAS URLS CONFIRMADAS ---
+DICCIONARIO_MARCAS = {
+    "Uriage": "https://docs.google.com/spreadsheets/d/1XnkC6ONKaJm03k2qAtQmcwuoRrBSh6uXYsdewrlwjK0/",
+    "Sensilis": "https://docs.google.com/spreadsheets/d/1e8ZkA61crydoXKdA3lQtMkMMYDHutSR7t6PK-8GvPo0/",
+    "Apivita": "https://docs.google.com/spreadsheets/d/1r4KycpStMWvpF1fOzMgmLBjgVQ8dX8WTpgtKWgNm2lM/",
+    "Cantabria Labs": "https://docs.google.com/spreadsheets/d/18DGFtWV_BAOLjxBlmImhZ_8Xuilc4CKK_bNZIHQnCcU/"
 }
 
-# --- MENÚ LATERAL (SIDEBAR) ---
+# --- LÓGICA HISTÓRICA DE MESES ---
+def obtener_meses_disponibles():
+    meses_es = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+    start_year, start_month = 2026, 5
+    now = datetime.now()
+    lista = []
+    ano, mes = start_year, start_month
+    while (ano < now.year) or (ano == now.year and mes <= now.month):
+        lista.append(f"{meses_es[mes-1]} {ano}")
+        if mes == 12:
+            mes = 1
+            ano += 1
+        else:
+            mes += 1
+    return list(reversed(lista))
+
+def get_csv_url_by_sheet(url, sheet_name):
+    try:
+        id_publicacion = url.split("/d/")[1].split("/")[0]
+        sheet_enc = urllib.parse.quote(sheet_name)
+        return f"https://docs.google.com/spreadsheets/d/{id_publicacion}/gviz/tq?tqx=out:csv&sheet={sheet_enc}"
+    except:
+        return url
+
+def limpiar_monto_numerico(valor_str):
+    try:
+        limpio = re.sub(r'[^\d.-]', '', str(valor_str))
+        return float(limpio) if limpio else 0.0
+    except:
+        return 0.0
+
+# --- SIDEBAR CONTROL ---
+meses_disponibles = obtener_meses_disponibles()
 with st.sidebar:
-    st.image("medivelius_logo.jpg", use_column_width=True)
+    st.markdown("## 📊 Control de Paid Media")
+    st.write("Grupo: **Cantabria**")
     st.markdown("---")
-    st.header("Control de Marcas")
-    marca_seleccionada = st.selectbox(
-        "Seleccione la marca para ver el reporte:",
-        options=list(diccionario_marcas.keys())
-    )
+    mes_seleccionado = st.selectbox("📅 Seleccione el Mes de Reporte:", options=meses_disponibles)
     st.markdown("---")
-    st.info(f"Visualizando: **{marca_seleccionada}**")
+    marcas_disponibles = ["Todas las Marcas"] + list(DICCIONARIO_MARCAS.keys())
+    marca_seleccionada = st.selectbox("🧴 Filtrar por Marca:", options=marcas_disponibles)
 
-# --- CUERPO DEL REPORTE ---
-st.title(f"📈 Dashboard de Rendimiento: {marca_seleccionada}")
-url_pacing_activa = diccionario_marcas[marca_seleccionada]
+# --- PROCESAMIENTO MULTI-DOCUMENTO ---
+campañas_consolidadas = []
+totales_presupuesto = {}
+fechas_actualizacion = {}
+errores_reportados = []
 
-try:
-    # 1. CARGA DE DATOS (Filas 1-5 Header, Fila 6+ Datos)
-    df_header = pd.read_csv(get_csv_url(url_pacing_activa), nrows=5, header=None)
-    presupuesto_mensual = df_header.iloc[1, 2] 
-
-    df_pacing = pd.read_csv(get_csv_url(url_pacing_activa), skiprows=5)
-    df_pacing.columns = [str(c).strip() for c in df_pacing.columns]
-
-    # 2. MÉTRICAS DE CABECERA
-    fila_total = df_pacing[df_pacing['Campaign'].str.contains('TOTAL', na=False)].iloc[0]
-    gasto_total = fila_total['Spend (COP)']
+for marca, url_base in DICCIONARIO_MARCAS.items():
+    if marca_seleccionada != "Todas las Marcas" and marca != marca_seleccionada:
+        continue
+        
+    url_pacing = get_csv_url_by_sheet(url_base, mes_seleccionado)
     
-    col_fecha = encontrar_columna(df_pacing.columns, ['Actualizacion', 'Pacing']) or 'Actualización Pacing'
-    fecha_update = df_pacing[col_fecha].dropna().iloc[-1]
-    dias_hoy = datetime.now().day
+    try:
+        df_raw = pd.read_csv(url_pacing, header=None, dtype=str).fillna('')
+        
+        # 1. Encontrar fila de encabezados
+        idx_header = None
+        for i, row in df_raw.iterrows():
+            if any('campaign' in val.lower() or 'campaña' in val.lower() for val in row.tolist()):
+                idx_header = i
+                break
+        
+        if idx_header is None:
+            errores_reportados.append(f"Falta pestaña o la tabla no está lista en **{marca}** para {mes_seleccionado}.")
+            continue
 
+        # 2. LECTURA LINEAL DEL PRESUPUESTO (Alineado a la izquierda por Columna A)
+        presupuesto_marca = 0.0
+        for i in range(idx_header):
+            fila = df_raw.iloc[i].astype(str).tolist()
+            for j, celda in enumerate(fila):
+                celda_limpia = celda.lower().strip()
+                if 'approved' in celda_limpia or 'aprobado' in celda_limpia:
+                    if j + 1 < len(fila) and fila[j+1].strip() not in ['', 'nan', '<na>']:
+                        presupuesto_marca = limpiar_monto_numerico(fila[j+1])
+                    break
+            if presupuesto_marca > 0:
+                break
+        
+        totales_presupuesto[marca] = presupuesto_marca
+
+        # 3. Construir la tabla limpia de campañas
+        df_pacing = df_raw.iloc[idx_header + 1:].copy()
+        nombres_seguros = []
+        for i, c in enumerate(df_raw.iloc[idx_header].tolist()):
+            nombre = re.sub(r'\s+', ' ', str(c)).strip()
+            if nombre == '': nombre = f"Columna_{i}"
+            nombres_seguros.append(nombre)
+        df_pacing.columns = nombres_seguros
+
+        # Mapeado inteligente de columnas
+        col_camp = next((c for c in df_pacing.columns if 'campaign' in c.lower() or 'campaña' in c.lower()), None)
+        col_medio = next((c for c in df_pacing.columns if 'channel' in c.lower() or 'platform' in c.lower() or 'canal' in c.lower()), None)
+        col_spend = next((c for c in df_pacing.columns if 'spend' in c.lower() or 'gasto' in c.lower() or 'cop' in c.lower() or 'invers' in c.lower()), None)
+        col_tipo = next((c for c in df_pacing.columns if 'official' in c.lower() or 'conversions' in c.lower() or 'objetivo' in c.lower()), None)
+        col_res = next((c for c in df_pacing.columns if 'resultados' in c.lower() or 'results' in c.lower()), None)
+        col_cpa = next((c for c in df_pacing.columns if 'cpa' in c.lower()), None)
+        col_fecha = next((c for c in df_pacing.columns if 'actualizaci' in c.lower() or 'pacing' in c.lower() or 'fecha' in c.lower()), None)
+
+        if not col_camp: col_camp = df_pacing.columns[1]
+        if not col_medio: col_medio = df_pacing.columns[0]
+        if not col_spend: col_spend = df_pacing.columns[7] if len(df_pacing.columns) > 7 else df_pacing.columns[-1]
+
+        # Limpieza y filtrado estructural de las filas
+        df_limpio = df_pacing.copy()
+        df_limpio = df_limpio[df_limpio[col_camp].str.strip() != '']
+        df_limpio = df_limpio[~df_limpio[col_camp].str.upper().str.contains('TOTAL')]
+        df_limpio = df_limpio[df_limpio[col_camp].str.lower() != 'campaign']
+
+        df_limpio[col_medio] = df_limpio[col_medio].replace('', pd.NA).ffill().fillna('Sin Medio')
+        df_limpio[col_spend] = df_limpio[col_spend].str.replace(r'[^\d.-]', '', regex=True)
+        df_limpio[col_spend] = pd.to_numeric(df_limpio[col_spend], errors='coerce').fillna(0)
+
+        if col_tipo: df_limpio['Objetivo_Final'] = df_limpio[col_tipo].replace('', 'Sin Objetivo')
+        else: df_limpio['Objetivo_Final'] = 'General'
+
+        df_limpio['Resultados_Final'] = df_limpio[col_res] if col_res else 'N/D'
+        df_limpio['CPA_Final'] = df_limpio[col_cpa] if col_cpa else 'N/D'
+
+        # Extracción segura de la última fecha registrada
+        if col_fecha:
+            fechas_validas = df_limpio[col_fecha].astype(str).str.strip()
+            fechas_validas = fechas_validas[(fechas_validas != '') & (~fechas_validas.str.lower().str.contains('pacing|actualiz|fecha'))]
+            fechas_actualizacion[marca] = fechas_validas.iloc[-1] if not fechas_validas.empty else "N/D"
+        else:
+            fechas_actualizacion[marca] = "N/D"
+
+        # Guardar marca y consolidar
+        df_limpio['Marca'] = marca
+        df_limpio = df_limpio.rename(columns={col_medio: 'Medio', col_camp: 'Campaña', col_spend: 'Gasto'})
+        campañas_consolidadas.append(df_limpio[['Marca', 'Medio', 'Campaña', 'Gasto', 'Objetivo_Final', 'Resultados_Final', 'CPA_Final']])
+
+    except Exception as e:
+        errores_reportados.append(f"Error procesando los datos de **{marca}**: {str(e)}")
+
+# --- RENDERIZADO DEL DASHBOARD CONSOLIDADO ---
+if campañas_consolidadas:
+    df_master = pd.concat(campañas_consolidadas, ignore_index=True)
+    presupuesto_total_global = sum(totales_presupuesto.values())
+    gasto_total_global = df_master['Gasto'].sum()
+    
+    st.title(f"⚡ Dashboard Gerencial Cantabria: {mes_seleccionado.title()}")
+    if marca_seleccionada != "Todas las Marcas":
+        st.subheader(f"Foco en la marca: {marca_seleccionada}")
+
+    # KPIs Superiores
     c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("Presupuesto Mes", f"{presupuesto_mensual}")
-    with c2:
-        st.metric("Gasto al Día", f"{gasto_total}")
+    with c1: st.metric("Presupuesto Configurado", f"${presupuesto_total_global:,.0f}")
+    with c2: st.metric("Inversión Ejecutada Total", f"${gasto_total_global:,.0f}")
     with c3:
-        st.metric("Días del Mes", f"{dias_hoy}")
+        if mes_seleccionado == meses_disponibles[0]:
+            st.metric("Día de Medición", f"Día {datetime.now().day}")
+        else:
+            st.metric("Estado del Mes", "Cerrado")
 
-    st.success(f"📅 Última actualización de datos de {marca_seleccionada}: {fecha_update}")
+    # Módulo expandible de sincronizaciones individuales por marca
+    with st.expander("🔗 Estado de Conexión de los Documentos"):
+        for m in totales_presupuesto.keys():
+            st.write(f"✅ **{m}**: Sincronizado | Presupuesto: ${totales_presupuesto[m]:,.0f} | Último registro: {fechas_actualizacion.get(m, 'N/D')}")
+
+    if errores_reportados:
+        for err in errores_reportados:
+            st.warning(err)
+            
     st.divider()
 
-    # 3. SECCIÓN DE RESULTADOS GENERALES (Todas las campañas)
-    st.header(f"🎯 Rendimiento de Campañas ({marca_seleccionada})")
+    # --- GRÁFICA TREEMAP MULTINIVEL ---
+    st.header("📊 Distribución de Inversión por Marca y Plataforma")
     
-    # Filtro: Campañas individuales (omitiendo totales)
-    df_campañas = df_pacing[
-        (df_pacing['Campaign'].notna()) & 
-        (~df_pacing['Campaign'].str.contains('TOTAL', na=False))
-    ].copy()
+    resumen_medios = df_master.groupby('Medio')['Gasto'].sum()
+    mapa_medios = {med: f"{med} (${tot:,.0f})" for med, tot in resumen_medios.items()}
+    df_master['Medio_Labels'] = df_master['Medio'].map(mapa_medios).astype(str)
 
-    if not df_campañas.empty:
-        # Buscamos columnas O (Resultados), R (CPA) y P (Tipo de compra)
-        col_res = encontrar_columna(df_campañas.columns, ['Platform', 'Conversions'])
-        col_cpa = encontrar_columna(df_campañas.columns, ['CPA'])
-        col_tipo = encontrar_columna(df_campañas.columns, ['Official', 'Conversions'])
+    df_plot = df_master[df_master['Gasto'] > 0]
+    if not df_plot.empty:
+        # Si se ven todas las marcas agregamos el nivel superior en el mapa
+        camino_path = ['Marca', 'Medio_Labels', 'Objetivo_Final'] if marca_seleccionada == "Todas las Marcas" else ['Medio_Labels', 'Objetivo_Final']
         
-        cols_finales = ['Campaign']
-        nombres_renombrar = {'Campaign': 'Campaña'}
-        
-        if col_tipo:
-            cols_finales.append(col_tipo)
-            nombres_renombrar[col_tipo] = 'Tipo de Resultado'
-        if col_res:
-            cols_finales.append(col_res)
-            nombres_renombrar[col_res] = 'Resultados (Cant.)'
-        if col_cpa:
-            cols_finales.append(col_cpa)
-            nombres_renombrar[col_cpa] = 'Costo por Resultado'
-            
-        df_display = df_campañas[cols_finales].rename(columns=nombres_renombrar)
-        
-        # Mostramos la tabla completa con la nueva columna
-        st.dataframe(df_display, use_container_width=True, hide_index=True)
+        fig = px.treemap(df_plot, path=camino_path, values='Gasto', color='Gasto', color_continuous_scale=['#d6b58e', '#5b3f8e'])
+        fig.update_traces(texttemplate="<b>%{label}</b><br>$%{value:,.0f}", hovertemplate="<b>%{label}</b><br>Inversión: $%{value:,.0f}<extra></extra>", textposition="middle center")
+        fig.update_layout(margin=dict(t=10, l=10, r=10, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
+        st.plotly_chart(fig, use_container_width=True)
     else:
-        st.warning(f"No se detectan campañas activas para {marca_seleccionada}.")
+        st.warning("No se detectan datos de gasto mayores a $0 para graficar en este periodo.")
 
-except Exception as e:
-    st.error(f"Error al cargar datos de {marca_seleccionada}: {e}")
+    # --- TABLA DE DETALLES ---
+    with st.expander("📝 Desglose Estructurado de Campañas (Data Clean)"):
+        df_display = df_master[['Marca', 'Medio', 'Campaña', 'Objetivo_Final', 'Resultados_Final', 'CPA_Final']].rename(
+            columns={'Objetivo_Final': 'Objetivo', 'Resultados_Final': 'Resultados', 'CPA_Final': 'CPA'}
+        )
+        st.dataframe(df_display.sort_values(by=['Marca', 'Medio']), use_container_width=True, hide_index=True)
 
-st.caption(f"Medivelius Group Dashboard | Desarrollado por goBIG | {datetime.now().strftime('%Y')}")
+else:
+    st.title("📊 Dashboard Gerencial Cantabria")
+    st.error("No se pudieron extraer datos de ninguna marca. Verifica que las pestañas con el nombre del mes existan en tus 4 archivos de Google Sheets.")
+    if errores_reportados:
+        for err in errores_reportados:
+            st.error(err)
+
+st.caption(f"Cantabria Digital Analytics | Strategic Analytics by goBIG")
