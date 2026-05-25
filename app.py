@@ -49,7 +49,6 @@ def obtener_meses_disponibles():
     return list(reversed(lista))
 
 def query_sheet_data(url, mes_str):
-    # Ya que el "1" era un comentario, buscamos el nombre limpio directamente
     variantes_pestaña = [mes_str, mes_str.title(), mes_str.lower()]
     id_publicacion = url.split("/d/")[1].split("/")[0]
     
@@ -144,10 +143,12 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
         col_tipo = next((c for c in df_pacing.columns if 'official' in c.lower() or 'conversions' in c.lower() or 'objetivo' in c.lower()), None)
         col_res = next((c for c in df_pacing.columns if 'resultados' in c.lower() or 'results' in c.lower()), None)
         col_cpa = next((c for c in df_pacing.columns if 'cpa' in c.lower()), None)
-        col_fecha = next((c for c in df_pacing.columns if 'actualizaci' in c.lower() or 'pacing' in c.lower() or 'fecha' in c.lower()), df_pacing.columns[-1])
 
         if not col_spend:
             col_spend = df_pacing.columns[7] if len(df_pacing.columns) > 7 else df_pacing.columns[-1]
+
+        # 4. ENCONTRAR TODAS LAS COLUMNAS DE FECHA (Para evitar el conflicto de nombres repetidos)
+        cols_fecha_detectadas = [c for c in df_pacing.columns if any(k in c.lower() for k in ['actualizaci', 'pacing', 'fecha'])]
 
         # Limpieza y filtrado estructural de las filas
         df_limpio = df_pacing.copy()
@@ -165,17 +166,24 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
         df_limpio['Resultados_Final'] = df_limpio[col_res] if col_res else 'N/D'
         df_limpio['CPA_Final'] = df_limpio[col_cpa] if col_cpa else 'N/D'
 
-        # 6. EXTRACCIÓN INVERSA NATIIVA DE LA FECHA (Corregida sin .contains erróneo)
+        # 5. EXTRACCIÓN MULTI-COLUMNA DE FECHA (De abajo hacia arriba cruzando todas las columnas de Pacing)
         marca_fecha = "N/D"
-        if col_fecha in df_limpio.columns:
-            lista_fechas = df_limpio[col_fecha].astype(str).str.strip().tolist()
-            for f_val in reversed(lista_fechas):
-                f_limpia = f_val.lower()
-                if f_limpia != '' and f_limpia not in ['nan', 'none', '<na>', '-', 'null']:
-                    # Evita que se quede con palabras de encabezados remanentes
-                    if not any(k in f_limpia for k in ['actualiz', 'pacing', 'fecha', 'update']):
-                        marca_fecha = f_val
+        encontrado = False
+        
+        # Iteramos las filas de la tabla limpia de atrás hacia adelante
+        for idx in reversed(df_limpio.index):
+            for c_fecha in cols_fecha_detectadas:
+                val_celda = str(df_limpio.loc[idx, c_fecha]).strip()
+                val_lower = val_celda.lower()
+                
+                if val_celda != '' and val_lower not in ['nan', 'none', '<na>', '-', 'null']:
+                    if not any(k in val_lower for k in ['actualiz', 'pacing', 'fecha', 'update']):
+                        marca_fecha = val_celda
+                        encontrado = True
                         break
+            if encontrado:
+                break
+                
         fechas_actualizacion[marca] = marca_fecha
 
         # Guardar marca y consolidar
