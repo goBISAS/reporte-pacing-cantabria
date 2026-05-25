@@ -49,7 +49,8 @@ def obtener_meses_disponibles():
     return list(reversed(lista))
 
 def query_sheet_data(url, mes_str):
-    variantes_pestaña = [mes_str, f"1 {mes_str}", mes_str.title(), mes_str.lower()]
+    # Ya que el "1" era un comentario, buscamos el nombre limpio directamente
+    variantes_pestaña = [mes_str, mes_str.title(), mes_str.lower()]
     id_publicacion = url.split("/d/")[1].split("/")[0]
     
     for pestaña in variantes_pestaña:
@@ -164,15 +165,17 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
         df_limpio['Resultados_Final'] = df_limpio[col_res] if col_res else 'N/D'
         df_limpio['CPA_Final'] = df_limpio[col_cpa] if col_cpa else 'N/D'
 
-        # 6. EXTRACCIÓN INVERSA DE LA FECHA (Ignora celdas vacías al fondo de la tabla)
+        # 6. EXTRACCIÓN INVERSA NATIIVA DE LA FECHA (Corregida sin .contains erróneo)
         marca_fecha = "N/D"
         if col_fecha in df_limpio.columns:
             lista_fechas = df_limpio[col_fecha].astype(str).str.strip().tolist()
-            # Escaneamos de abajo hacia arriba buscando un formato numérico/fecha válido
             for f_val in reversed(lista_fechas):
-                if f_val != '' and f_val.lower() not in ['nan', 'none', '<na>', '-'] and not f_val.lower().contains('actualiz|pacing|fecha'):
-                    marca_fecha = f_val
-                    break
+                f_limpia = f_val.lower()
+                if f_limpia != '' and f_limpia not in ['nan', 'none', '<na>', '-', 'null']:
+                    # Evita que se quede con palabras de encabezados remanentes
+                    if not any(k in f_limpia for k in ['actualiz', 'pacing', 'fecha', 'update']):
+                        marca_fecha = f_val
+                        break
         fechas_actualizacion[marca] = marca_fecha
 
         # Guardar marca y consolidar
@@ -206,7 +209,7 @@ if campañas_consolidadas:
     # Módulo expandible de sincronizaciones
     with st.expander("🔗 Estado de Conexión de los Documentos"):
         for m in totales_presupuesto.keys():
-            st.write(f"✅ **{m}**: Sincronizado | Presupuesto: ${totales_presupuesto[m]:,.0f} | Último registro: {fechas_actualizacion.get(m, 'N/D')}")
+            st.write(f"✅ **{m}**: Sincronizado | Presupuesto: ${totales_presupuesto.get(m, 0):,.0f} | Último registro: {fechas_actualizacion.get(m, 'N/D')}")
 
     if errores_reportados:
         for err in errores_reportados:
