@@ -127,70 +127,58 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
         
         totales_presupuesto[marca] = presupuesto_marca
 
-        # 3. Construir la tabla limpia de campañas
-        df_pacing = df_raw.iloc[idx_header + 1:].copy()
-        nombres_seguros = []
-        for i, c in enumerate(df_raw.iloc[idx_header].tolist()):
-            nombre = re.sub(r'\s+', ' ', str(c)).strip()
-            if nombre == '': nombre = f"Columna_{i}"
-            nombres_seguros.append(nombre)
-        df_pacing.columns = nombres_seguros
-
-        # Mapeado dinámico por aproximación de nombres
-        col_camp = next((c for c in df_pacing.columns if 'campaign' in c.lower() or 'campaña' in c.lower()), df_pacing.columns[1])
-        col_medio = next((c for c in df_pacing.columns if 'channel' in c.lower() or 'platform' in c.lower() or 'canal' in c.lower()), df_pacing.columns[0])
-        col_spend = next((c for c in df_pacing.columns if 'spend' in c.lower() or 'gasto' in c.lower() or 'cop' in c.lower() or 'invers' in c.lower()), None)
-        col_tipo = next((c for c in df_pacing.columns if 'official' in c.lower() or 'conversions' in c.lower() or 'objetivo' in c.lower()), None)
-        col_res = next((c for c in df_pacing.columns if 'resultados' in c.lower() or 'results' in c.lower()), None)
-        col_cpa = next((c for c in df_pacing.columns if 'cpa' in c.lower()), None)
-
-        if not col_spend:
-            col_spend = df_pacing.columns[7] if len(df_pacing.columns) > 7 else df_pacing.columns[-1]
-
-        # 4. ENCONTRAR TODAS LAS COLUMNAS DE FECHA (Evita conflicto de nombres duplicados)
-        cols_fecha_detectadas = [c for c in df_pacing.columns if any(k in c.lower() for k in ['actualizaci', 'pacing', 'fecha'])]
-
-        # Limpieza y filtrado estructural de las filas
-        df_limpio = df_pacing.copy()
-        df_limpio = df_limpio[df_limpio[col_camp].str.strip() != '']
-        df_limpio = df_limpio[~df_limpio[col_camp].str.upper().str.contains('TOTAL')]
-        df_limpio = df_limpio[df_limpio[col_camp].str.lower() != 'campaign']
-
-        df_limpio[col_medio] = df_limpio[col_medio].replace('', pd.NA).ffill().fillna('Sin Medio')
-        df_limpio[col_spend] = df_limpio[col_spend].str.replace(r'[^\d.-]', '', regex=True)
-        df_limpio[col_spend] = pd.to_numeric(df_limpio[col_spend], errors='coerce').fillna(0)
-
-        if col_tipo: df_limpio['Objetivo_Final'] = df_limpio[col_tipo].replace('', 'Sin Objetivo')
-        else: df_limpio['Objetivo_Final'] = 'General'
-
-        df_limpio['Resultados_Final'] = df_limpio[col_res] if col_res else 'N/D'
-        df_limpio['CPA_Final'] = df_limpio[col_cpa] if col_cpa else 'N/D'
-
-        # 5. EXTRACCIÓN INVERSA MULTI-COLUMNA SEGURA (Nativa de Python)
-        marca_fecha = "N/D"
-        encontrado = False
+        # 3. CONSTRUCCIÓN DE TABLA DESDE MATRIZ CRUDA (Bypass absoluto de nombres de columnas)
+        df_datos = df_raw.iloc[idx_header + 1:].copy()
         
-        # Recorremos el dataframe limpio al revés usando .iloc
-        for row_idx in range(len(df_limpio) - 1, -1, -1):
-            for c_fecha in cols_fecha_detectadas:
-                val_celda = str(df_limpio.iloc[row_idx][c_fecha]).strip()
+        # Mapeo posicional seguro (Índices fijos de tu estructura alineada)
+        col_idx_camp = 1   # Columna B: Campaign
+        col_idx_medio = 0  # Columna A: Canal
+        col_idx_spend = 7  # Columna H: Spend (COP)
+        col_idx_tipo = 15  # Columna P: Official Conversions
+        col_idx_res = 14   # Columna O: Platform Conversions
+        col_idx_cpa = 17   # Columna R: CPA
+        col_idx_fecha = 18 # Columna S: Actualizacion Pacing
+
+        # 4. EXTRACCIÓN INVERSA ASOCIADA AL DATAFRAME ORIGINAL
+        marca_fecha = "N/D"
+        if len(df_datos) > 0 and len(df_raw.columns) > col_idx_fecha:
+            # Recorremos las celdas de la columna S de abajo hacia arriba antes de limpiar filtros
+            for row_pos in range(len(df_raw) - 1, idx_header, -1):
+                val_celda = str(df_raw.iloc[row_pos, col_idx_fecha]).strip()
                 val_lower = val_celda.lower()
                 
-                # Filtrar celdas que no aportan datos válidos de fecha
-                if val_celda != '' and val_lower not in ['nan', 'none', '<na>', '-', 'null']:
-                    if not any(k in val_lower for k in ['actualiz', 'pacing', 'fecha', 'update', 'total']):
+                # Buscamos una celda con formato de fecha (que tenga números o barras y no sea basura)
+                if val_celda != '' and val_lower not in ['nan', 'none', '<na>', '-', 'null', 'total']:
+                    if not any(k in val_lower for k in ['actualiz', 'pacing', 'fecha', 'campaign']):
                         marca_fecha = val_celda
-                        encontrado = True
                         break
-            if encontrado:
-                break
-                
         fechas_actualizacion[marca] = marca_fecha
 
-        # Guardar marca y consolidar
+        # 5. CREACIÓN DEL DATA CLEAN FINAL
+        df_limpio = pd.DataFrame()
+        df_limpio['Campaña'] = df_datos.iloc[:, col_idx_camp].astype(str).str.strip()
+        df_limpio['Medio'] = df_datos.iloc[:, col_idx_medio].astype(str).str.strip()
+        df_limpio['Gasto_Raw'] = df_datos.iloc[:, col_idx_spend].astype(str).str.strip()
+        
+        if len(df_datos.columns) > col_idx_tipo:
+            df_limpio['Objetivo'] = df_datos.iloc[:, col_idx_tipo].astype(str).str.strip().replace('', 'Sin Objetivo')
+        else:
+            df_limpio['Objetivo'] = 'General'
+            
+        df_limpio['Resultados'] = df_datos.iloc[:, col_idx_res].astype(str).str.strip() if len(df_datos.columns) > col_idx_res else 'N/D'
+        df_limpio['CPA'] = df_datos.iloc[:, col_idx_cpa].astype(str).str.strip() if len(df_datos.columns) > col_idx_cpa else 'N/D'
+
+        # Filtrado estricto de filas vacías y totales
+        df_limpio = df_limpio[df_limpio['Campaña'] != '']
+        df_limpio = df_limpio[~df_limpio['Campaña'].str.upper().str.contains('TOTAL')]
+        df_limpio = df_limpio[~df_limpio['Campaña'].str.lower().str.contains('campaign|campaña')]
+
+        df_limpio['Medio'] = df_limpio['Medio'].replace(['', 'nan', 'NaN'], pd.NA).ffill().fillna('Sin Medio')
+        df_limpio['Gasto'] = df_limpio['Gasto_Raw'].str.replace(r'[^\d.-]', '', regex=True)
+        df_limpio['Gasto'] = pd.to_numeric(df_limpio['Gasto'], errors='coerce').fillna(0)
+        
         df_limpio['Marca'] = marca
-        df_limpio = df_limpio.rename(columns={col_medio: 'Medio', col_camp: 'Campaña', col_spend: 'Gasto'})
-        campañas_consolidadas.append(df_limpio[['Marca', 'Medio', 'Campaña', 'Gasto', 'Objetivo_Final', 'Resultados_Final', 'CPA_Final']])
+        campañas_consolidadas.append(df_limpio[['Marca', 'Medio', 'Campaña', 'Gasto', 'Objetivo', 'Resultados', 'CPA']])
 
     except Exception as e:
         errores_reportados.append(f"Error procesando los datos de **{marca}**: {str(e)}")
@@ -235,7 +223,7 @@ if campañas_consolidadas:
 
     df_plot = df_master[df_master['Gasto'] > 0]
     if not df_plot.empty:
-        camino_path = ['Marca', 'Medio_Labels', 'Objetivo_Final'] if marca_seleccionada == "Todas las Marcas" else ['Medio_Labels', 'Objetivo_Final']
+        camino_path = ['Marca', 'Medio_Labels', 'Objetivo'] if marca_seleccionada == "Todas las Marcas" else ['Medio_Labels', 'Objetivo']
         
         fig = px.treemap(df_plot, path=camino_path, values='Gasto', color='Gasto', color_continuous_scale=['#d6b58e', '#5b3f8e'])
         fig.update_traces(texttemplate="<b>%{label}</b><br>$%{value:,.0f}", hovertemplate="<b>%{label}</b><br>Inversión: $%{value:,.0f}<extra></extra>", textposition="middle center")
@@ -246,10 +234,7 @@ if campañas_consolidadas:
 
     # --- TABLA DE DETALLES ---
     with st.expander("📝 Desglose Estructurado de Campañas (Data Clean)"):
-        df_display = df_master[['Marca', 'Medio', 'Campaña', 'Objetivo_Final', 'Resultados_Final', 'CPA_Final']].rename(
-            columns={'Objetivo_Final': 'Objetivo', 'Resultados_Final': 'Resultados', 'CPA_Final': 'CPA'}
-        )
-        st.dataframe(df_display.sort_values(by=['Marca', 'Medio']), use_container_width=True, hide_index=True)
+        st.dataframe(df_master[['Marca', 'Medio', 'Campaña', 'Objetivo', 'Resultados', 'CPA']].sort_values(by=['Marca', 'Medio']), use_container_width=True, hide_index=True)
 
 else:
     st.title("📊 Dashboard Gerencial Cantabria")
