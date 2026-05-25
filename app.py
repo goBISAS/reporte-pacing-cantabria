@@ -24,7 +24,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- MAPEO DE MARCAS CON LAS NUEVAS URLS CONFIRMADAS ---
+# --- MAPEO DE MARCAS CON LAS URLS CONFIRMADAS ---
 DICCIONARIO_MARCAS = {
     "Uriage": "https://docs.google.com/spreadsheets/d/1XnkC6ONKaJm03k2qAtQmcwuoRrBSh6uXYsdewrlwjK0/",
     "Sensilis": "https://docs.google.com/spreadsheets/d/1e8ZkA61crydoXKdA3lQtMkMMYDHutSR7t6PK-8GvPo0/",
@@ -48,13 +48,21 @@ def obtener_meses_disponibles():
             mes += 1
     return list(reversed(lista))
 
-def get_csv_url_by_sheet(url, sheet_name):
-    try:
-        id_publicacion = url.split("/d/")[1].split("/")[0]
-        sheet_enc = urllib.parse.quote(sheet_name)
-        return f"https://docs.google.com/spreadsheets/d/{id_publicacion}/gviz/tq?tqx=out:csv&sheet={sheet_enc}"
-    except:
-        return url
+def query_sheet_data(url, mes_str):
+    # Tolera variantes como "Mayo 2026" y "1 Mayo 2026" de Uriage
+    variantes_pestaña = [mes_str, f"1 {mes_str}", mes_str.title(), mes_str.lower()]
+    id_publicacion = url.split("/d/")[1].split("/")[0]
+    
+    for pestaña in variantes_pestaña:
+        try:
+            sheet_enc = urllib.parse.quote(pestaña)
+            csv_url = f"https://docs.google.com/spreadsheets/d/{id_publicacion}/gviz/tq?tqx=out:csv&sheet={sheet_enc}"
+            df = pd.read_csv(csv_url, header=None, dtype=str)
+            if not df.empty:
+                return df, pestaña
+        except:
+            continue
+    return None, None
 
 def limpiar_monto_numerico(valor_str):
     try:
@@ -84,23 +92,28 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
     if marca_seleccionada != "Todas las Marcas" and marca != marca_seleccionada:
         continue
         
-    url_pacing = get_csv_url_by_sheet(url_base, mes_seleccionado)
+    df_raw, pestaña_detectada = query_sheet_data(url_base, mes_seleccionado)
+    
+    if df_raw is None:
+        errores_reportados.append(f"No se encontró la pestaña de **{mes_seleccionado}** en el documento de **{marca}**.")
+        continue
+        
+    df_raw = df_raw.fillna('')
     
     try:
-        df_raw = pd.read_csv(url_pacing, header=None, dtype=str).fillna('')
-        
-        # 1. Encontrar fila de encabezados
+        # 1. RADAR FLEXIBLE EN COLUMNA A: Buscar fila de inicio de tabla
         idx_header = None
         for i, row in df_raw.iterrows():
-            if any('campaign' in val.lower() or 'campaña' in val.lower() for val in row.tolist()):
+            valores_fila = [str(x).lower() for x in row.tolist()]
+            if any(k in val for val in valores_fila for k in ['campaign', 'campaña', 'canal', 'ppto mensual']):
                 idx_header = i
                 break
         
         if idx_header is None:
-            errores_reportados.append(f"Falta pestaña o la tabla no está lista en **{marca}** para {mes_seleccionado}.")
+            errores_reportados.append(f"Estructura de tabla no identificada en **{marca}** ({pestaña_detectada}).")
             continue
 
-        # 2. LECTURA LINEAL DEL PRESUPUESTO (Alineado a la izquierda por Columna A)
+        # 2. LECTURA LINEAL DEL PRESUPUESTO
         presupuesto_marca = 0.0
         for i in range(idx_header):
             fila = df_raw.iloc[i].astype(str).tolist()
@@ -124,18 +137,17 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
             nombres_seguros.append(nombre)
         df_pacing.columns = nombres_seguros
 
-        # Mapeado inteligente de columnas
-        col_camp = next((c for c in df_pacing.columns if 'campaign' in c.lower() or 'campaña' in c.lower()), None)
-        col_medio = next((c for c in df_pacing.columns if 'channel' in c.lower() or 'platform' in c.lower() or 'canal' in c.lower()), None)
+        # Mapeado dinámico por aproximación de nombres
+        col_camp = next((c for c in df_pacing.columns if 'campaign' in c.lower() or 'campaña' in c.lower()), df_pacing.columns[1])
+        col_medio = next((c for c in df_pacing.columns if 'channel' in c.lower() or 'platform' in c.lower() or 'canal' in c.lower()), df_pacing.columns[0])
         col_spend = next((c for c in df_pacing.columns if 'spend' in c.lower() or 'gasto' in c.lower() or 'cop' in c.lower() or 'invers' in c.lower()), None)
         col_tipo = next((c for c in df_pacing.columns if 'official' in c.lower() or 'conversions' in c.lower() or 'objetivo' in c.lower()), None)
         col_res = next((c for c in df_pacing.columns if 'resultados' in c.lower() or 'results' in c.lower()), None)
         col_cpa = next((c for c in df_pacing.columns if 'cpa' in c.lower()), None)
-        col_fecha = next((c for c in df_pacing.columns if 'actualizaci' in c.lower() or 'pacing' in c.lower() or 'fecha' in c.lower()), None)
+        col_fecha = next((c for c in df_pacing.columns if 'actualizaci' in c.lower() or 'pacing' in c.lower() or 'fecha' in c.lower()), df_pacing.columns[-1])
 
-        if not col_camp: col_camp = df_pacing.columns[1]
-        if not col_medio: col_medio = df_pacing.columns[0]
-        if not col_spend: col_spend = df_pacing.columns[7] if len(df_pacing.columns) > 7 else df_pacing.columns[-1]
+        if not col_spend:
+            col_spend = df_pacing.columns[7] if len(df_pacing.columns) > 7 else df_pacing.columns[-1]
 
         # Limpieza y filtrado estructural de las filas
         df_limpio = df_pacing.copy()
@@ -153,13 +165,10 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
         df_limpio['Resultados_Final'] = df_limpio[col_res] if col_res else 'N/D'
         df_limpio['CPA_Final'] = df_limpio[col_cpa] if col_cpa else 'N/D'
 
-        # Extracción segura de la última fecha registrada
-        if col_fecha:
-            fechas_validas = df_limpio[col_fecha].astype(str).str.strip()
-            fechas_validas = fechas_validas[(fechas_validas != '') & (~fechas_validas.str.lower().str.contains('pacing|actualiz|fecha'))]
-            fechas_actualizacion[marca] = fechas_validas.iloc[-1] if not fechas_validas.empty else "N/D"
-        else:
-            fechas_actualizacion[marca] = "N/D"
+        # Extracción segura de la última fecha registrada en la columna detectada
+        fechas_validas = df_limpio[col_fecha].astype(str).str.strip()
+        fechas_validas = fechas_validas[(fechas_validas != '') & (~fechas_validas.str.lower().str.contains('pacing|actualiz|fecha'))]
+        fechas_actualizacion[marca] = fechas_validas.iloc[-1] if not fechas_validas.empty else "N/D"
 
         # Guardar marca y consolidar
         df_limpio['Marca'] = marca
@@ -169,7 +178,7 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
     except Exception as e:
         errores_reportados.append(f"Error procesando los datos de **{marca}**: {str(e)}")
 
-# --- RENDERIZADO DEL DASHBOARD CONSOLIDADO ---
+# --- RENDERIZADO ---
 if campañas_consolidadas:
     df_master = pd.concat(campañas_consolidadas, ignore_index=True)
     presupuesto_total_global = sum(totales_presupuesto.values())
@@ -189,7 +198,7 @@ if campañas_consolidadas:
         else:
             st.metric("Estado del Mes", "Cerrado")
 
-    # Módulo expandible de sincronizaciones individuales por marca
+    # Módulo expandible de sincronizaciones
     with st.expander("🔗 Estado de Conexión de los Documentos"):
         for m in totales_presupuesto.keys():
             st.write(f"✅ **{m}**: Sincronizado | Presupuesto: ${totales_presupuesto[m]:,.0f} | Último registro: {fechas_actualizacion.get(m, 'N/D')}")
@@ -209,7 +218,6 @@ if campañas_consolidadas:
 
     df_plot = df_master[df_master['Gasto'] > 0]
     if not df_plot.empty:
-        # Si se ven todas las marcas agregamos el nivel superior en el mapa
         camino_path = ['Marca', 'Medio_Labels', 'Objetivo_Final'] if marca_seleccionada == "Todas las Marcas" else ['Medio_Labels', 'Objetivo_Final']
         
         fig = px.treemap(df_plot, path=camino_path, values='Gasto', color='Gasto', color_continuous_scale=['#d6b58e', '#5b3f8e'])
@@ -228,7 +236,6 @@ if campañas_consolidadas:
 
 else:
     st.title("📊 Dashboard Gerencial Cantabria")
-    st.error("No se pudieron extraer datos de ninguna marca. Verifica que las pestañas con el nombre del mes existan en tus 4 archivos de Google Sheets.")
     if errores_reportados:
         for err in errores_reportados:
             st.error(err)
