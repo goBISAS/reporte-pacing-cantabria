@@ -367,15 +367,15 @@ def render_reportes_rendimiento():
     
     # Filtro de Marca
     marcas_rep = ["Todas las Marcas"] + list(df_reportes['Marca'].unique())
-    marca_sel = st.sidebar.selectbox("🧴 Filtrar por Marca:", opciones=marcas_rep, key="sb_marca_rep")
+    marca_sel = st.sidebar.selectbox("🧴 Filtrar por Marca:", options=marcas_rep, key="sb_marca_rep")
     
     # Filtro de Mes unificado (Ej: "Mayo" o "Todos")
     meses_disponibles = ["Todos"] + list(df_reportes['Mes'].unique())
-    mes_sel = st.sidebar.selectbox("📅 Filtrar por Mes:", opciones=meses_disponibles, key="sb_mes_rep")
+    mes_sel = st.sidebar.selectbox("📅 Filtrar por Mes:", options=meses_disponibles, key="sb_mes_rep")
     
     # Filtro de Medio unificado (Ej: "Meta Ads", "Google Ads")
     medios_disponibles = ["Todos"] + list(df_reportes['Medio'].unique())
-    medio_sel = st.sidebar.selectbox("🎯 Filtrar por Medio:", opciones=medios_disponibles, key="sb_medio_rep")
+    medio_sel = st.sidebar.selectbox("🎯 Filtrar por Medio:", options=medios_disponibles, key="sb_medio_rep")
 
     # 3. Aplicación de segmentación del DataFrame
     df_filtrado = df_reportes.copy()
