@@ -9,12 +9,12 @@ import re
 # CONFIGURACIÓN DE PÁGINA PREMIUM UNIFICADA
 # ==========================================
 st.set_page_config(
-    page_title="Cantabria - Multibrand Paid Media & Analytics Dashboard",
+    page_title="Cantabria - Multibrand Paid Media Dashboard",
     page_icon="⚡",
     layout="wide"
 )
 
-# ESTILOS PREMIUM GO BIG (Actualizados para soportar tarjetas de reportes)
+# ESTILOS PREMIUM GO BIG (Actualizados con Media Queries para previsualización)
 st.markdown("""
     <style>
     .main { background-color: #0d0d0d; }
@@ -24,68 +24,22 @@ st.markdown("""
     .stSidebar { background-color: #1a1a1a; border-right: 1px solid #333; }
     .stPlotlyChart { border: 1px solid #333; border-radius: 8px; background-color: #1a1a1a; }
     
-    /* Estilos Premium para las Tarjetas de Reporte de Rendimiento */
-    .report-card {
-        background-color: #141414;
-        border: 1px solid #262626;
-        border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 25px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    }
-    .report-header {
-        font-size: 20px;
-        font-weight: bold;
-        color: #d6b58e;
-        border-bottom: 1px solid #333;
-        padding-bottom: 10px;
-        margin-bottom: 15px;
-        font-family: 'Georgia', serif;
-    }
-    .analysis-box {
-        color: #e0e0e0;
-        font-size: 14.5px;
-        line-height: 1.6;
-        margin-bottom: 20px;
-        text-align: justify;
-    }
-    .todo-box {
-        background-color: #1c1510;
-        border-left: 4px solid #d6b58e;
-        padding: 15px 20px;
-        border-radius: 4px;
-        margin-top: 15px;
-    }
-    .todo-title {
-        color: #d6b58e;
-        font-weight: bold;
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 5px;
-    }
-    .todo-text {
-        color: #f5f5f5;
-        font-size: 14px;
-        margin: 0;
-    }
-    .evidencia-btn {
-        display: inline-block;
-        background-color: transparent;
-        color: #d6b58e !important;
-        border: 1px solid #d6b58e;
-        padding: 8px 16px;
-        border-radius: 6px;
-        text-decoration: none;
-        font-size: 13px;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        margin-top: 10px;
-        text-align: center;
-    }
-    .evidencia-btn:hover {
-        background-color: #d6b58e;
-        color: #0d0d0d !important;
+    .report-card { background-color: #141414; border: 1px solid #262626; border-radius: 12px; padding: 24px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    .report-header { font-size: 20px; font-weight: bold; color: #d6b58e; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-family: 'Georgia', serif; }
+    .analysis-box { color: #e0e0e0; font-size: 14.5px; line-height: 1.6; margin-bottom: 20px; text-align: justify; }
+    .todo-box { background-color: #1c1510; border-left: 4px solid #d6b58e; padding: 15px 20px; border-radius: 4px; margin-top: 15px; }
+    .todo-title { color: #d6b58e; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .todo-text { color: #f5f5f5; font-size: 14px; margin: 0; }
+    .evidencia-btn { display: inline-block; background-color: transparent; color: #d6b58e !important; border: 1px solid #d6b58e; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 500; transition: all 0.3s ease; margin-top: 10px; text-align: center; }
+    .evidencia-btn:hover { background-color: #d6b58e; color: #0d0d0d !important; }
+    
+    /* Previsualización Responsiva */
+    .desktop-preview { display: block; width: 100%; max-height: 400px; object-fit: contain; margin-top: 15px; border-radius: 8px; border: 1px solid #333; }
+    .mobile-btn-container { display: none; }
+    
+    @media (max-width: 768px) {
+        .desktop-preview { display: none !important; }
+        .mobile-btn-container { display: block !important; margin-top: 15px; }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -113,7 +67,6 @@ with st.sidebar:
     st.write("Grupo: **Cantabria**")
     st.markdown("---")
     
-    # Selector de Pantalla Principal
     opcion_menu = st.radio(
         "🧠 Seleccione la Vista:",
         ["📈 Dashboard Gerencial", "📝 Reportes de Rendimiento"],
@@ -121,9 +74,8 @@ with st.sidebar:
     )
     st.markdown("---")
 
-
 # ==========================================
-# PÁGINA 1: DASHBOARD GERENCIAL (CÓDIGO ORIGINAL INTACTO)
+# PÁGINA 1: DASHBOARD GERENCIAL
 # ==========================================
 def render_dashboard_gerencial():
     def obtener_meses_disponibles():
@@ -144,7 +96,6 @@ def render_dashboard_gerencial():
     def query_sheet_data(url, mes_str):
         variantes_pestaña = [mes_str, mes_str.title(), mes_str.lower()]
         id_publicacion = url.split("/d/")[1].split("/")[0]
-        
         for pestaña in variantes_pestaña:
             try:
                 sheet_enc = urllib.parse.quote(pestaña)
@@ -157,8 +108,6 @@ def render_dashboard_gerencial():
         return None, None
 
     meses_disponibles = obtener_meses_disponibles()
-    
-    # Filtros contextuales dentro del sidebar usando áreas dinámicas
     st.sidebar.markdown("### Contexto: Dashboard Gerencial")
     mes_seleccionado = st.sidebar.selectbox("📅 Seleccione el Mes de Reporte:", options=meses_disponibles, key="sb_mes_gerencial")
     marcas_disponibles = ["Todas las Marcas"] + list(DICCIONARIO_MARCAS.keys())
@@ -172,13 +121,10 @@ def render_dashboard_gerencial():
     for marca, url_base in DICCIONARIO_MARCAS.items():
         if marca_seleccionada != "Todas las Marcas" and marca != marca_seleccionada:
             continue
-            
         df_raw, pestaña_detectada = query_sheet_data(url_base, mes_seleccionado)
-        
         if df_raw is None:
             errores_reportados.append(f"No se encontró la pestaña de **{mes_seleccionado}** en el documento de **{marca}**.")
             continue
-            
         df_raw = df_raw.fillna('')
         
         try:
@@ -195,26 +141,17 @@ def render_dashboard_gerencial():
                         break
                 if presupuesto_marca > 0:
                     break
-            
             totales_presupuesto[marca] = presupuesto_marca
 
             df_datos = df_raw.iloc[idx_header + 1:].copy()
-            
-            col_idx_medio = 0  
-            col_idx_camp = 1   
-            col_idx_status = 4 
-            col_idx_spend = 7  
-            col_idx_res = 14   
-            col_idx_tipo = 15  
-            col_idx_cpa = 17   
-            col_idx_fecha = 18 
+            col_idx_medio = 0; col_idx_camp = 1; col_idx_status = 4; col_idx_spend = 7
+            col_idx_res = 14; col_idx_tipo = 15; col_idx_cpa = 17; col_idx_fecha = 18 
 
             marca_fecha = "N/D"
             if len(df_datos) > 0 and len(df_raw.columns) > col_idx_fecha:
                 for row_pos in range(len(df_raw) - 1, idx_header, -1):
                     val_celda = str(df_raw.iloc[row_pos, col_idx_fecha]).strip()
                     val_lower = val_celda.lower()
-                    
                     if val_celda != '' and val_lower not in ['nan', 'none', '<na>', '-', 'null', 'total']:
                         if not any(k in val_lower for k in ['actualiz', 'pacing', 'fecha', 'campaign', 'nombre']):
                             marca_fecha = val_celda
@@ -224,32 +161,22 @@ def render_dashboard_gerencial():
             lista_campanas_marca = []
             for idx, row in df_datos.iterrows():
                 if len(row) <= max(col_idx_camp, col_idx_medio): continue
-                
                 celda_camp = str(row[col_idx_camp]).strip()
                 celda_medio = str(row[col_idx_medio]).strip()
-                
                 if celda_camp == '' or any(k in celda_camp.lower() for k in ['campaign', 'campaña', 'nombre de la', 'total']):
                     continue
-                    
                 celda_status = str(row[col_idx_status]).strip() if len(row) > col_idx_status else 'N/D'
                 if celda_status == '': celda_status = 'N/D'
-                
                 celda_spend = str(row[col_idx_spend]).strip() if len(row) > col_idx_spend else '0'
                 celda_tipo = str(row[col_idx_tipo]).strip() if len(row) > col_idx_tipo else 'General'
                 if celda_tipo == '': celda_tipo = 'Sin Objetivo'
-                
                 celda_res = str(row[col_idx_res]).strip() if len(row) > col_idx_res else 'N/D'
                 celda_cpa = str(row[col_idx_cpa]).strip() if len(row) > col_idx_cpa else 'N/D'
 
                 lista_campanas_marca.append({
-                    'Marca': marca,
-                    'Medio_Raw': celda_medio,
-                    'Campaña': celda_camp,
-                    'Estado': celda_status,
-                    'Gasto_Raw': celda_spend,
-                    'Objetivo': celda_tipo,
-                    'Resultados': celda_res,
-                    'CPA': celda_cpa
+                    'Marca': marca, 'Medio_Raw': celda_medio, 'Campaña': celda_camp,
+                    'Estado': celda_status, 'Gasto_Raw': celda_spend, 'Objetivo': celda_tipo,
+                    'Resultados': celda_res, 'CPA': celda_cpa
                 })
 
             if lista_campanas_marca:
@@ -258,7 +185,6 @@ def render_dashboard_gerencial():
                 df_marca_limpio['Medio'] = df_marca_limpio['Medio_Raw'].ffill().fillna('Sin Medio')
                 df_marca_limpio['Gasto'] = df_marca_limpio['Gasto_Raw'].str.replace(r'[^\d.-]', '', regex=True)
                 df_marca_limpio['Gasto'] = pd.to_numeric(df_marca_limpio['Gasto'], errors='coerce').fillna(0)
-                
                 campañas_consolidadas.append(df_marca_limpio[['Marca', 'Medio', 'Campaña', 'Estado', 'Gasto', 'Objetivo', 'Resultados', 'CPA']])
 
         except Exception as e:
@@ -313,16 +239,14 @@ def render_dashboard_gerencial():
         if errores_reportados:
             for err in errores_reportados: st.error(err)
 
-
 # ==========================================
-# PÁGINA 2: REPORTES DE RENDIMIENTO Y OPTIMIZACIÓN (NUEVA PÁGINA)
+# PÁGINA 2: REPORTES DE RENDIMIENTO Y OPTIMIZACIÓN
 # ==========================================
 def render_reportes_rendimiento():
     st.title("📈 Reportes de Rendimiento y Optimización")
     st.caption("Análisis cualitativo, pruebas de mercado y planes de acción estratégicos.")
     
-    # 1. Extracción de Datos dedicada desde la pestaña fija 'Reporte mensual'
-    @st.cache_data(ttl=600)  # Caché de 10 minutos para optimizar performance de red
+    @st.cache_data(ttl=600)
     def cargar_reportes_desde_drive():
         registros_totales = []
         pestaña_target = "Reporte mensual"
@@ -332,65 +256,68 @@ def render_reportes_rendimiento():
             try:
                 id_publicacion = url_base.split("/d/")[1].split("/")[0]
                 csv_url = f"https://docs.google.com/spreadsheets/d/{id_publicacion}/gviz/tq?tqx=out:csv&sheet={sheet_enc}"
-                
-                # Leemos forzando lectura como string y saltándonos la primera fila que es la cabecera
                 df_rep = pd.read_csv(csv_url, dtype=str).fillna('')
-                
-                # Homologamos nombres de columnas basados en la posición (A=Año, B=Mes, C=Medio, D=Observación, E=Evidencia, F=Todo)
                 if len(df_rep.columns) >= 6:
                     for idx, row in df_rep.iterrows():
-                        # Validamos que al menos los campos clave no estén vacíos
                         if str(row.iloc[2]).strip() != '' and str(row.iloc[3]).strip() != '':
                             registros_totales.append({
-                                "Marca": marca,
-                                "Año": str(row.iloc[0]).strip(),
-                                "Mes": str(row.iloc[1]).strip(),
-                                "Medio": str(row.iloc[2]).strip(),
-                                "Observación": str(row.iloc[3]).strip(),
-                                "Evidencia": str(row.iloc[4]).strip(),
-                                "To_Do": str(row.iloc[5]).strip()
+                                "Marca": marca, "Año": str(row.iloc[0]).strip(), "Mes": str(row.iloc[1]).strip(),
+                                "Medio": str(row.iloc[2]).strip(), "Observación": str(row.iloc[3]).strip(),
+                                "Evidencia": str(row.iloc[4]).strip(), "To_Do": str(row.iloc[5]).strip()
                             })
-            except Exception as e:
-                # Si una marca aún no tiene la pestaña creada, pasará limpiamente sin tumbar la App
-                continue
-                
+            except: continue
         return pd.DataFrame(registros_totales)
 
     df_reportes = cargar_reportes_desde_drive()
-
     if df_reportes.empty:
         st.info("No se han encontrado registros en las pestañas 'Reporte mensual' de las marcas configuradas.")
         return
 
-    # 2. SECCIÓN DE FILTROS SUPERIORES (Layout Horizontal Cruzado)
     st.sidebar.markdown("### Contexto: Rendimiento")
-    
-    # Filtro de Marca
     marcas_rep = ["Todas las Marcas"] + list(df_reportes['Marca'].unique())
     marca_sel = st.sidebar.selectbox("🧴 Filtrar por Marca:", options=marcas_rep, key="sb_marca_rep")
     
-    # Filtro de Mes unificado (Ej: "Mayo" o "Todos")
     meses_disponibles = ["Todos"] + list(df_reportes['Mes'].unique())
     mes_sel = st.sidebar.selectbox("📅 Filtrar por Mes:", options=meses_disponibles, key="sb_mes_rep")
     
-    # Filtro de Medio unificado (Ej: "Meta Ads", "Google Ads")
     medios_disponibles = ["Todos"] + list(df_reportes['Medio'].unique())
     medio_sel = st.sidebar.selectbox("🎯 Filtrar por Medio:", options=medios_disponibles, key="sb_medio_rep")
 
-    # 3. Aplicación de segmentación del DataFrame
     df_filtrado = df_reportes.copy()
-    if marca_sel != "Todas las Marcas":
-        df_filtrado = df_filtrado[df_filtrado['Marca'] == marca_sel]
-    if mes_sel != "Todos":
-        df_filtrado = df_filtrado[df_filtrado['Mes'] == mes_sel]
-    if medio_sel != "Todos":
-        df_filtrado = df_filtrado[df_filtrado['Medio'] == medio_sel]
+    if marca_sel != "Todas las Marcas": df_filtrado = df_filtrado[df_filtrado['Marca'] == marca_sel]
+    if mes_sel != "Todos": df_filtrado = df_filtrado[df_filtrado['Mes'] == mes_sel]
+    if medio_sel != "Todos": df_filtrado = df_filtrado[df_filtrado['Medio'] == medio_sel]
 
-    # 4. RENDERIZADO EN FORMATO TARJETAS PREMIUM (Estilo Hyatt Analytics)
     st.write(f"Mostrando **{len(df_filtrado)}** análisis encontrados:")
     
     for _, fila in df_filtrado.iterrows():
-        # Contenedor HTML estructural inyectado de manera segura
+        evidencia_url = fila['Evidencia']
+        evidencia_html = ""
+        
+        if evidencia_url and evidencia_url.startswith("http"):
+            # LÓGICA DE DETECCIÓN: Buscar si es un archivo directo de Google Drive
+            match_file = re.search(r'/file/d/([a-zA-Z0-9_-]+)', evidencia_url)
+            
+            if match_file:
+                # Si es un archivo, extraemos el ID y habilitamos la previsualización responsiva
+                img_id = match_file.group(1)
+                img_direct_url = f"https://drive.google.com/uc?export=view&id={img_id}"
+                evidencia_html = f"""
+                <div style="margin-top: 15px;">
+                    <img src="{img_direct_url}" class="desktop-preview" alt="Evidencia visual">
+                    <div class="mobile-btn-container">
+                        <a href="{evidencia_url}" target="_blank" class="evidencia-btn">🔗 Abrir evidencia en Google Drive</a>
+                    </div>
+                </div>
+                """
+            else:
+                # Si es una carpeta de Drive (folders) u otro enlace web, solo permitimos el botón
+                evidencia_html = f"""
+                <div style="margin-top: 15px;">
+                    <a href="{evidencia_url}" target="_blank" class="evidencia-btn">🔗 Abrir enlace de evidencia</a>
+                </div>
+                """
+
         card_html = f"""
         <div class="report-card">
             <div class="report-header">
@@ -400,16 +327,10 @@ def render_reportes_rendimiento():
             <div class="analysis-box">
                 {fila['Observación']}
             </div>
+            {evidencia_html}
         """
         st.markdown(card_html, unsafe_allow_html=True)
         
-        # El botón de evidencias e hipervínculos se maneja nativamente por Streamlit para evitar bloqueos del navegador
-        if fila['Evidencia'] and fila['Evidencia'].startswith("http"):
-            st.markdown(f'<a href="{fila["Evidencia"]}" target="_blank" class="evidencia-btn">🔗 Abrir evidencia en Google Drive</a>', unsafe_allow_html=True)
-        else:
-            st.caption("No hay un enlace de evidencia válido registrado para este análisis.")
-
-        # Caja de Siguientes pasos (To Do)
         if fila['To_Do']:
             todo_html = f"""
             <div class="todo-box">
@@ -419,9 +340,7 @@ def render_reportes_rendimiento():
             """
             st.markdown(todo_html, unsafe_allow_html=True)
             
-        # Cierre del contenedor principal de la tarjeta
         st.markdown("</div>", unsafe_allow_html=True)
-
 
 # ==========================================
 # RUTAS DE ENRUTAMIENTO DINÁMICO
@@ -431,5 +350,4 @@ if opcion_menu == "📈 Dashboard Gerencial":
 elif opcion_menu == "📝 Reportes de Rendimiento":
     render_reportes_rendimiento()
 
-# Footer Global unificado de marca
-st.caption(f"Cantabria Digital Analytics | Strategic Analytics by goBIG v2.5")
+st.caption(f"Cantabria Digital Analytics | Strategic Analytics by goBIG v2.6")
