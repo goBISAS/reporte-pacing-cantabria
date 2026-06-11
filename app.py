@@ -34,7 +34,7 @@ st.markdown("""
     .evidencia-btn:hover { background-color: #d6b58e; color: #0d0d0d !important; }
     
     /* Previsualización Responsiva */
-    .desktop-preview { display: block; width: 100%; max-height: 400px; object-fit: contain; margin-top: 15px; border-radius: 8px; border: 1px solid #333; }
+    .desktop-preview { display: block; width: 100%; height: 450px; margin-top: 15px; border-radius: 8px; border: 1px solid #333; background-color: #222; }
     .mobile-btn-container { display: none; }
     
     @media (max-width: 768px) {
@@ -227,99 +227,4 @@ def render_dashboard_gerencial():
             camino_path = ['Marca', 'Medio_Labels', 'Objetivo'] if marca_seleccionada == "Todas las Marcas" else ['Medio_Labels', 'Objetivo']
             fig = px.treemap(df_plot, path=camino_path, values='Gasto', color='Gasto', color_continuous_scale=['#d6b58e', '#5b3f8e'])
             fig.update_traces(texttemplate="<b>%{label}</b><br>$%{value:,.0f}", hovertemplate="<b>%{label}</b><br>Inversión: $%{value:,.0f}<extra></extra>", textposition="middle center")
-            fig.update_layout(margin=dict(t=10, l=10, r=10, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("No se detectan datos de gasto mayores a $0 para graficar en este periodo.")
-
-        with st.expander("📝 Desglose Estructurado de Campañas (Data Clean)"):
-            st.dataframe(df_master[['Marca', 'Medio', 'Campaña', 'Estado', 'Objetivo', 'Resultados', 'CPA']].sort_values(by=['Marca', 'Medio']), use_container_width=True, hide_index=True)
-    else:
-        st.title("📊 Dashboard Gerencial Cantabria")
-        if errores_reportados:
-            for err in errores_reportados: st.error(err)
-
-# ==========================================
-# PÁGINA 2: REPORTES DE RENDIMIENTO Y OPTIMIZACIÓN
-# ==========================================
-def render_reportes_rendimiento():
-    st.title("📈 Reportes de Rendimiento y Optimización")
-    st.caption("Análisis cualitativo, pruebas de mercado y planes de acción estratégicos.")
-    
-    @st.cache_data(ttl=600)
-    def cargar_reportes_desde_drive():
-        registros_totales = []
-        pestaña_target = "Reporte mensual"
-        sheet_enc = urllib.parse.quote(pestaña_target)
-        
-        for marca, url_base in DICCIONARIO_MARCAS.items():
-            try:
-                id_publicacion = url_base.split("/d/")[1].split("/")[0]
-                csv_url = f"https://docs.google.com/spreadsheets/d/{id_publicacion}/gviz/tq?tqx=out:csv&sheet={sheet_enc}"
-                df_rep = pd.read_csv(csv_url, dtype=str).fillna('')
-                if len(df_rep.columns) >= 6:
-                    for idx, row in df_rep.iterrows():
-                        if str(row.iloc[2]).strip() != '' and str(row.iloc[3]).strip() != '':
-                            registros_totales.append({
-                                "Marca": marca, "Año": str(row.iloc[0]).strip(), "Mes": str(row.iloc[1]).strip(),
-                                "Medio": str(row.iloc[2]).strip(), "Observación": str(row.iloc[3]).strip(),
-                                "Evidencia": str(row.iloc[4]).strip(), "To_Do": str(row.iloc[5]).strip()
-                            })
-            except: continue
-        return pd.DataFrame(registros_totales)
-
-    df_reportes = cargar_reportes_desde_drive()
-    if df_reportes.empty:
-        st.info("No se han encontrado registros en las pestañas 'Reporte mensual' de las marcas configuradas.")
-        return
-
-    st.sidebar.markdown("### Contexto: Rendimiento")
-    marcas_rep = ["Todas las Marcas"] + list(df_reportes['Marca'].unique())
-    marca_sel = st.sidebar.selectbox("🧴 Filtrar por Marca:", options=marcas_rep, key="sb_marca_rep")
-    
-    meses_disponibles = ["Todos"] + list(df_reportes['Mes'].unique())
-    mes_sel = st.sidebar.selectbox("📅 Filtrar por Mes:", options=meses_disponibles, key="sb_mes_rep")
-    
-    medios_disponibles = ["Todos"] + list(df_reportes['Medio'].unique())
-    medio_sel = st.sidebar.selectbox("🎯 Filtrar por Medio:", options=medios_disponibles, key="sb_medio_rep")
-
-    df_filtrado = df_reportes.copy()
-    if marca_sel != "Todas las Marcas": df_filtrado = df_filtrado[df_filtrado['Marca'] == marca_sel]
-    if mes_sel != "Todos": df_filtrado = df_filtrado[df_filtrado['Mes'] == mes_sel]
-    if medio_sel != "Todos": df_filtrado = df_filtrado[df_filtrado['Medio'] == medio_sel]
-
-    st.write(f"Mostrando **{len(df_filtrado)}** análisis encontrados:")
-    
-    for _, fila in df_filtrado.iterrows():
-        evidencia_url = fila['Evidencia']
-        evidencia_html = ""
-        
-        if evidencia_url and evidencia_url.startswith("http"):
-            match_file = re.search(r'/file/d/([a-zA-Z0-9_-]+)', evidencia_url)
-            
-            # ELIMINAMOS LA SANGRÍA DEL HTML PARA QUE STREAMLIT NO LO TOME COMO CÓDIGO
-            if match_file:
-                img_id = match_file.group(1)
-                img_direct_url = f"https://drive.google.com/uc?export=view&id={img_id}"
-                evidencia_html = f"<div style='margin-top: 15px;'><img src='{img_direct_url}' class='desktop-preview' alt='Evidencia visual'><div class='mobile-btn-container'><a href='{evidencia_url}' target='_blank' class='evidencia-btn'>🔗 Abrir evidencia en Google Drive</a></div></div>"
-            else:
-                evidencia_html = f"<div style='margin-top: 15px;'><a href='{evidencia_url}' target='_blank' class='evidencia-btn'>🔗 Abrir enlace de evidencia</a></div>"
-
-        # ESTRUCTURA HTML PRINCIPAL SIN SANGRÍAS INTERNAS
-        card_html = f"<div class='report-card'><div class='report-header'>[{fila['Marca'].upper()}] {fila['Medio']} | {fila['Mes']} {fila['Año']}</div><div style='color: #d6b58e; font-weight: bold; margin-bottom: 5px; font-size:12px; letter-spacing:0.5px;'>ANÁLISIS E INSIGHTS:</div><div class='analysis-box'>{fila['Observación']}</div>{evidencia_html}</div>"
-        
-        st.markdown(card_html, unsafe_allow_html=True)
-        
-        if fila['To_Do']:
-            todo_html = f"<div class='todo-box'><div class='todo-title'>⚡ Siguientes Pasos (To Do):</div><p class='todo-text'>{fila['To_Do']}</p></div>"
-            st.markdown(todo_html, unsafe_allow_html=True)
-
-# ==========================================
-# RUTAS DE ENRUTAMIENTO DINÁMICO
-# ==========================================
-if opcion_menu == "📈 Dashboard Gerencial":
-    render_dashboard_gerencial()
-elif opcion_menu == "📝 Reportes de Rendimiento":
-    render_reportes_rendimiento()
-
-st.caption(f"Cantabria Digital Analytics | Strategic Analytics by goBIG v2.7")
+            fig.update_
