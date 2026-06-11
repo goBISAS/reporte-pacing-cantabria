@@ -14,7 +14,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ESTILOS PREMIUM GO BIG (Actualizados con Media Queries para previsualización)
+# ESTILOS PREMIUM GO BIG
 st.markdown("""
     <style>
     .main { background-color: #0d0d0d; }
@@ -295,52 +295,24 @@ def render_reportes_rendimiento():
         evidencia_html = ""
         
         if evidencia_url and evidencia_url.startswith("http"):
-            # LÓGICA DE DETECCIÓN: Buscar si es un archivo directo de Google Drive
             match_file = re.search(r'/file/d/([a-zA-Z0-9_-]+)', evidencia_url)
             
+            # ELIMINAMOS LA SANGRÍA DEL HTML PARA QUE STREAMLIT NO LO TOME COMO CÓDIGO
             if match_file:
-                # Si es un archivo, extraemos el ID y habilitamos la previsualización responsiva
                 img_id = match_file.group(1)
                 img_direct_url = f"https://drive.google.com/uc?export=view&id={img_id}"
-                evidencia_html = f"""
-                <div style="margin-top: 15px;">
-                    <img src="{img_direct_url}" class="desktop-preview" alt="Evidencia visual">
-                    <div class="mobile-btn-container">
-                        <a href="{evidencia_url}" target="_blank" class="evidencia-btn">🔗 Abrir evidencia en Google Drive</a>
-                    </div>
-                </div>
-                """
+                evidencia_html = f"<div style='margin-top: 15px;'><img src='{img_direct_url}' class='desktop-preview' alt='Evidencia visual'><div class='mobile-btn-container'><a href='{evidencia_url}' target='_blank' class='evidencia-btn'>🔗 Abrir evidencia en Google Drive</a></div></div>"
             else:
-                # Si es una carpeta de Drive (folders) u otro enlace web, solo permitimos el botón
-                evidencia_html = f"""
-                <div style="margin-top: 15px;">
-                    <a href="{evidencia_url}" target="_blank" class="evidencia-btn">🔗 Abrir enlace de evidencia</a>
-                </div>
-                """
+                evidencia_html = f"<div style='margin-top: 15px;'><a href='{evidencia_url}' target='_blank' class='evidencia-btn'>🔗 Abrir enlace de evidencia</a></div>"
 
-        card_html = f"""
-        <div class="report-card">
-            <div class="report-header">
-                [{fila['Marca'].upper()}] {fila['Medio']} | {fila['Mes']} {fila['Año']}
-            </div>
-            <div style="color: #d6b58e; font-weight: bold; margin-bottom: 5px; font-size:12px; letter-spacing:0.5px;">ANÁLISIS E INSIGHTS:</div>
-            <div class="analysis-box">
-                {fila['Observación']}
-            </div>
-            {evidencia_html}
-        """
+        # ESTRUCTURA HTML PRINCIPAL SIN SANGRÍAS INTERNAS
+        card_html = f"<div class='report-card'><div class='report-header'>[{fila['Marca'].upper()}] {fila['Medio']} | {fila['Mes']} {fila['Año']}</div><div style='color: #d6b58e; font-weight: bold; margin-bottom: 5px; font-size:12px; letter-spacing:0.5px;'>ANÁLISIS E INSIGHTS:</div><div class='analysis-box'>{fila['Observación']}</div>{evidencia_html}</div>"
+        
         st.markdown(card_html, unsafe_allow_html=True)
         
         if fila['To_Do']:
-            todo_html = f"""
-            <div class="todo-box">
-                <div class="todo-title">⚡ Siguientes Pasos (To Do):</div>
-                <p class="todo-text">{fila['To_Do']}</p>
-            </div>
-            """
+            todo_html = f"<div class='todo-box'><div class='todo-title'>⚡ Siguientes Pasos (To Do):</div><p class='todo-text'>{fila['To_Do']}</p></div>"
             st.markdown(todo_html, unsafe_allow_html=True)
-            
-        st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
 # RUTAS DE ENRUTAMIENTO DINÁMICO
@@ -350,4 +322,4 @@ if opcion_menu == "📈 Dashboard Gerencial":
 elif opcion_menu == "📝 Reportes de Rendimiento":
     render_reportes_rendimiento()
 
-st.caption(f"Cantabria Digital Analytics | Strategic Analytics by goBIG v2.6")
+st.caption(f"Cantabria Digital Analytics | Strategic Analytics by goBIG v2.7")
