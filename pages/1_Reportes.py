@@ -9,14 +9,90 @@ st.markdown("""
     <style>
     .main { background-color: #0d0d0d; }
     h1, h2, h3 { color: #ffffff; font-family: 'Georgia', serif; }
-    .report-card { background-color: #141414; border: 1px solid #262626; border-radius: 12px; padding: 24px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-    .report-header { font-size: 20px; font-weight: bold; color: #d6b58e; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-family: 'Georgia', serif; }
-    .analysis-box { color: #e0e0e0; font-size: 14.5px; line-height: 1.6; margin-bottom: 20px; text-align: justify; }
-    .todo-box { background-color: #1c1510; border-left: 4px solid #d6b58e; padding: 15px 20px; border-radius: 4px; margin-top: 15px; }
-    .todo-title { color: #d6b58e; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-    .todo-text { color: #f5f5f5; font-size: 14px; margin: 0; }
-    .evidencia-btn { display: inline-block; background-color: transparent; color: #d6b58e !important; border: 1px solid #d6b58e; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 500; transition: all 0.3s ease; margin-top: 10px; text-align: center; }
-    .evidencia-btn:hover { background-color: #d6b58e; color: #0d0d0d !important; }
+    
+    /* Contenedor principal de la tarjeta */
+    .report-card { 
+        background-color: #141414; 
+        border: 1px solid #262626; 
+        border-radius: 12px; 
+        padding: 30px; 
+        margin-bottom: 30px; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+    }
+    .report-header { 
+        font-size: 22px; 
+        font-weight: bold; 
+        color: #d6b58e; 
+        border-bottom: 1px solid #333; 
+        padding-bottom: 12px; 
+        margin-bottom: 15px; 
+        font-family: 'Georgia', serif; 
+    }
+    .analysis-box { 
+        color: #e0e0e0; 
+        font-size: 15px; 
+        line-height: 1.6; 
+        margin-bottom: 25px; 
+        text-align: justify; 
+    }
+    
+    /* Estilos para la Evidencia (Imagen centrada + Botón) */
+    .evidencia-container {
+        text-align: center;
+        margin-bottom: 25px;
+        background-color: #0a0a0a;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px dashed #333;
+    }
+    .desktop-preview { 
+        display: block; 
+        width: 100%; 
+        max-width: 900px;
+        height: 400px; 
+        margin: 0 auto 15px auto; 
+        border-radius: 8px; 
+        border: 1px solid #333; 
+        background-color: #222; 
+    }
+    .evidencia-btn { 
+        display: inline-block; 
+        background-color: transparent; 
+        color: #d6b58e !important; 
+        border: 1px solid #d6b58e; 
+        padding: 10px 20px; 
+        border-radius: 6px; 
+        text-decoration: none; 
+        font-size: 14px; 
+        font-weight: bold; 
+        transition: all 0.3s ease; 
+    }
+    .evidencia-btn:hover { 
+        background-color: #d6b58e; 
+        color: #0d0d0d !important; 
+    }
+    
+    /* Estilos para el bloque de Siguientes Pasos */
+    .todo-box { 
+        background-color: #1c1510; 
+        border-left: 4px solid #d6b58e; 
+        padding: 18px 20px; 
+        border-radius: 4px; 
+    }
+    .todo-title { 
+        color: #d6b58e; 
+        font-weight: bold; 
+        font-size: 14px; 
+        text-transform: uppercase; 
+        letter-spacing: 1px; 
+        margin-bottom: 8px; 
+    }
+    .todo-text { 
+        color: #f5f5f5; 
+        font-size: 14.5px; 
+        margin: 0; 
+        line-height: 1.5;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,12 +152,25 @@ else:
     for _, fila in df_filtrado.iterrows():
         evidencia_url = fila['Evidencia']
         evidencia_html = ""
-        if evidencia_url and evidencia_url.startswith("http"):
-            evidencia_html = f"<div style='margin-top: 15px;'><a href='{evidencia_url}' target='_blank' class='evidencia-btn'>🔗 Abrir enlace de evidencia</a></div>"
-
-        card_html = f"<div class='report-card'><div class='report-header'>[{fila['Marca'].upper()}] {fila['Medio']} | {fila['Mes']} {fila['Año']}</div><div style='color: #d6b58e; font-weight: bold; margin-bottom: 5px; font-size:12px; letter-spacing:0.5px;'>ANÁLISIS E INSIGHTS:</div><div class='analysis-box'>{fila['Observación']}</div>{evidencia_html}</div>"
-        st.markdown(card_html, unsafe_allow_html=True)
         
+        # LOGICA DE PREVISUALIZACIÓN O BOTÓN
+        if evidencia_url and evidencia_url.startswith("http"):
+            match_file = re.search(r'/file/d/([a-zA-Z0-9_-]+)', evidencia_url)
+            if match_file:
+                # Si es un archivo directo de Google Drive, creamos el Iframe y el botón
+                img_id = match_file.group(1)
+                img_preview_url = f"https://drive.google.com/file/d/{img_id}/preview"
+                evidencia_html = f"<div class='evidencia-container'><iframe src='{img_preview_url}' class='desktop-preview'></iframe><br><a href='{evidencia_url}' target='_blank' class='evidencia-btn'>🔗 Abrir evidencia en Google Drive</a></div>"
+            else:
+                # Si es una carpeta u otro enlace, solo creamos el botón centrado
+                evidencia_html = f"<div class='evidencia-container' style='padding: 10px; border:none;'><a href='{evidencia_url}' target='_blank' class='evidencia-btn'>🔗 Abrir enlace de evidencia</a></div>"
+
+        # LOGICA DEL TO DO
+        todo_html = ""
         if fila['To_Do']:
             todo_html = f"<div class='todo-box'><div class='todo-title'>⚡ Siguientes Pasos (To Do):</div><p class='todo-text'>{fila['To_Do']}</p></div>"
-            st.markdown(todo_html, unsafe_allow_html=True)
+
+        # ARMADO DE LA TARJETA (TODO EN UN SOLO BLOQUE HTML)
+        card_html = f"<div class='report-card'><div class='report-header'>[{fila['Marca'].upper()}] {fila['Medio']} | {fila['Mes']} {fila['Año']}</div><div style='color: #d6b58e; font-weight: bold; margin-bottom: 5px; font-size:12px; letter-spacing:0.5px;'>ANÁLISIS E INSIGHTS:</div><div class='analysis-box'>{fila['Observación']}</div>{evidencia_html}{todo_html}</div>"
+        
+        st.markdown(card_html, unsafe_allow_html=True)
