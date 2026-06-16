@@ -117,14 +117,18 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
 
         df_datos = df_raw.iloc[idx_header + 1:].copy()
         
-        col_idx_medio = 0  
-        col_idx_camp = 1   
-        col_idx_status = 4 
-        col_idx_spend = 7  
-        col_idx_res = 14   
-        col_idx_tipo = 15  
-        col_idx_cpa = 17   
-        col_idx_fecha = 18 
+        col_idx_medio = 0  # Columna A: Channel
+        col_idx_camp = 1   # Columna B: Campaign
+        col_idx_status = 4 # Columna E: Status
+        col_idx_spend = 7  # Columna H: Spend (COP)
+        
+        # ---> COLUMNAS ACTUALIZADAS SEGÚN PACING SENSILIS <---
+        col_idx_ctr = 13   # Columna N: CTR
+        col_idx_res = 14   # Columna O: Platform Conversions
+        col_idx_tipo = 15  # Columna P: Official Conversions
+        col_idx_cpc = 16   # Columna Q: CPC
+        col_idx_cpa = 17   # Columna R: CPA
+        col_idx_fecha = 18 # Columna S: Actualizacion Pacing
 
         marca_fecha = "N/D"
         if len(df_datos) > 0 and len(df_raw.columns) > col_idx_fecha:
@@ -157,6 +161,12 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
             
             celda_res = str(row[col_idx_res]).strip() if len(row) > col_idx_res else 'N/D'
             celda_cpa = str(row[col_idx_cpa]).strip() if len(row) > col_idx_cpa else 'N/D'
+            
+            celda_ctr = str(row[col_idx_ctr]).strip() if len(row) > col_idx_ctr else 'N/D'
+            if celda_ctr == '': celda_ctr = 'N/D'
+            
+            celda_cpc = str(row[col_idx_cpc]).strip() if len(row) > col_idx_cpc else 'N/D'
+            if celda_cpc == '': celda_cpc = 'N/D'
 
             lista_campanas_marca.append({
                 'Marca': marca,
@@ -166,7 +176,9 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
                 'Gasto_Raw': celda_spend,
                 'Objetivo': celda_tipo,
                 'Resultados': celda_res,
-                'CPA': celda_cpa
+                'CPA': celda_cpa,
+                'CTR': celda_ctr,
+                'CPC': celda_cpc
             })
 
         if lista_campanas_marca:
@@ -175,7 +187,8 @@ for marca, url_base in DICCIONARIO_MARCAS.items():
             df_marca_limpio['Medio'] = df_marca_limpio['Medio_Raw'].ffill().fillna('Sin Medio')
             df_marca_limpio['Gasto'] = df_marca_limpio['Gasto_Raw'].str.replace(r'[^\d.-]', '', regex=True)
             df_marca_limpio['Gasto'] = pd.to_numeric(df_marca_limpio['Gasto'], errors='coerce').fillna(0)
-            campañas_consolidadas.append(df_marca_limpio[['Marca', 'Medio', 'Campaña', 'Estado', 'Gasto', 'Objetivo', 'Resultados', 'CPA']])
+            
+            campañas_consolidadas.append(df_marca_limpio[['Marca', 'Medio', 'Campaña', 'Estado', 'Gasto', 'Objetivo', 'Resultados', 'CPA', 'CTR', 'CPC']])
 
     except Exception as e:
         errores_reportados.append(f"Error procesando los datos de **{marca}**: {str(e)}")
@@ -226,8 +239,9 @@ if campañas_consolidadas:
     else:
         st.warning("No se detectan datos de gasto mayores a $0 para graficar en este periodo.")
 
+    # Incluimos CTR y CPC en la vista final de la tabla con el orden deseado
     with st.expander("📝 Desglose Estructurado de Campañas (Data Clean)"):
-        st.dataframe(df_master[['Marca', 'Medio', 'Campaña', 'Estado', 'Objetivo', 'Resultados', 'CPA']].sort_values(by=['Marca', 'Medio']), use_container_width=True, hide_index=True)
+        st.dataframe(df_master[['Marca', 'Medio', 'Campaña', 'Estado', 'Objetivo', 'Resultados', 'CTR', 'CPC', 'CPA']].sort_values(by=['Marca', 'Medio']), use_container_width=True, hide_index=True)
 
 else:
     st.title("📊 Dashboard Gerencial Cantabria")
